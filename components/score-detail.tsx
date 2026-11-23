@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Download, Headphones, Pause, Play, Repeat2, Waves } from "lucide-react";
-import type { Score } from "@/lib/catalog";
+import { ArrowRight, Download, Headphones, Heart, Pause, Play, Repeat2, Waves } from "lucide-react";
+import { scores, type Score } from "@/lib/catalog";
+import { useFavorites } from "@/components/site-shell";
 
 const arrangements = ["آسان", "نسخهٔ اصلی · متوسط", "سخت"];
 const notes = [523.25, 587.33, 659.25, 698.46, 783.99, 698.46, 659.25, 587.33, 523.25];
 
 export function ScoreDetail({ score }: { score: Score }) {
+  const { liked, toggleLike } = useFavorites();
+  const isLiked = liked.includes(score.slug);
   const [arrangement, setArrangement] = useState("نسخهٔ اصلی · متوسط");
   const [mode, setMode] = useState("حالت برگه‌ای");
   const [tempo, setTempo] = useState(92);
@@ -56,13 +59,16 @@ export function ScoreDetail({ score }: { score: Score }) {
 
   return <main className="page-wrap content-page">
     <div className="breadcrumbs"><Link href="/">خانه</Link>　/　<Link href="/scores">کتابخانه</Link>　/　{score.title}</div>
-    <div className="content-hero"><span className="eyebrow">شناسنامه و راهنمای قطعه</span><h1>نت پیانو {score.title} <small dir="auto">({score.latin})</small></h1><p>{score.role} {score.artist} · صفحهٔ اول را رایگان ببینید و تنظیم مناسب خود را انتخاب کنید.</p></div>
+    <div className="content-hero detail-hero"><span className="eyebrow">NUANCE · SHEET MUSIC EDITION</span><h1>نت پیانو {score.title} <small dir="auto">({score.latin})</small></h1><p>{score.role} {score.artist} · صفحهٔ اول را رایگان ببینید و تنظیم مناسب خود را انتخاب کنید.</p><div className="detail-hero-meta"><span>PIANO</span><span>{score.category}</span><span>{score.level}</span></div></div>
     <div className="detail-layout">
       <section className="sheet-preview" aria-label={`پیش‌نمایش نت ${score.title}`}>
         {mode === "حالت برگه‌ای" ? <div className="fake-sheet"><div className="staff-label"><span>𝄞</span><strong>{score.title}</strong><span>4/4</span></div><div className="staff-label"><span>♪</span><span>♩　♫　♬　♩　♪</span><span>𝄢</span></div><div className="staff-label"><span>𝄞</span><span>♪　♬　♩　♫　♩</span><span>𝄢</span></div><div className="staff-label"><span>♩</span><span>♫　♪　♬　♪</span><span>♩</span></div></div> : <div className="fake-sheet waterfall"><div className="staff-label"><span>𝄞</span><span>♪　♬　♩　♫</span></div><div className="staff-label"><span>♬　♩　♫　♪</span></div><div className="staff-label"><span>♪　♫　♩　♬</span></div></div>}
       </section>
       <aside className="detail-side">
         <span className="eyebrow">پیش‌نمایش نت و اجرای نمونه</span><h1>{score.title}</h1><p>{score.role} {score.artist}</p>
+        <button className={`detail-favorite ${isLiked ? "liked" : ""}`} onClick={() => toggleLike(score.slug)} aria-pressed={isLiked}>
+          <Heart size={16} fill={isLiked ? "currentColor" : "none"} />{isLiked ? "ذخیره‌شده در علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}
+        </button>
         <div className="detail-controls">
           <button onClick={playPreview}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? "توقف" : "پخش نمونه"}</button>
           <button onClick={() => { noteIndexRef.current = 0; if (playing) stopPreview(); }}><Repeat2 size={15} />از ابتدا</button>
@@ -77,5 +83,9 @@ export function ScoreDetail({ score }: { score: Score }) {
       </aside>
     </div>
     <section className="intro-panel"><h2>دربارهٔ نت {score.title}</h2><p>برای مقایسهٔ تنظیم‌ها، یک بخش یکسان از ملودی را در هر نسخه ببینید و بشنوید. ابتدا سرعت را کم کنید، سپس همراهی دست چپ را با ملودی تمرین کنید.</p><Link href="/scores" className="collection-link"><ArrowRight size={15} /> بازگشت به فهرست قطعات</Link></section>
+    <section className="related-works" aria-labelledby="related-title">
+      <div className="editorial-heading"><div><span className="eyebrow">CONTINUE EXPLORING</span><h2 id="related-title">قطعه‌های هم‌خانواده</h2></div><Link href="/scores">بازگشت به کتابخانه <ArrowRight size={14} /></Link></div>
+      <div className="related-list">{scores.filter((item) => item.slug !== score.slug && item.category === score.category).slice(0, 3).map((item) => <Link className="related-item" href={`/sheet/${item.slug}`} key={item.slug}><span className="related-index">{String(scores.indexOf(item) + 1).padStart(2, "0")}</span><span className="related-name">{item.title}<small>{item.latin}</small></span><span className="related-artist">{item.artist}</span><ArrowRight size={15} /></Link>)}</div>
+    </section>
   </main>;
 }

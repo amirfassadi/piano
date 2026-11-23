@@ -3,9 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useMemo, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowUpDown, Heart, Music2 } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Heart, Music2, Search } from "lucide-react";
 import { categories, levels, scores } from "@/lib/catalog";
 import type { Score } from "@/lib/catalog";
+import { useFavorites } from "@/components/site-shell";
 
 const popularRequests = [
   { title: "بر فراز آسمان‌ها", count: "۶۷ درخواست" },
@@ -75,7 +76,7 @@ export function CatalogHome({ initialQuery = "" }: { initialQuery?: string }) {
   const [level, setLevel] = useState("همهٔ سطح‌ها");
   const [access, setAccess] = useState("all");
   const [sort, setSort] = useState("popular");
-  const [liked, setLiked] = useState<string[]>([]);
+  const { liked, toggleLike } = useFavorites();
   const [visible, setVisible] = useState(16);
   const [query, setQuery] = useState(initialQuery);
 
@@ -95,6 +96,56 @@ export function CatalogHome({ initialQuery = "" }: { initialQuery?: string }) {
 
   return (
     <main className="page-wrap">
+      <section className="hero-editorial" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <span className="eyebrow">A CURATED PIANO ARCHIVE <i /></span>
+          <h1 id="hero-title"><span>هر نت،</span><em>یک ظرافت.</em></h1>
+          <p className="hero-tagline">Every Note Has a Nuance.</p>
+          <p className="hero-description">آثاری برای شنیدن، کشف‌کردن و دوباره نواختن؛ از موسیقی کلاسیک تا ملودی‌های آشنا.</p>
+          <form className="hero-search" role="search" onSubmit={(event) => { event.preventDefault(); document.getElementById("popular-title")?.scrollIntoView({ behavior: "smooth" }); }}>
+            <Search size={19} aria-hidden="true" />
+            <input id="catalog-search" aria-label="جست‌وجوی نت‌ها" placeholder="نام قطعه، آهنگساز یا هنرمند..." value={query} onChange={(event) => { setQuery(event.target.value); setVisible(16); }} />
+            <button type="submit" aria-label="جست‌وجو"><ArrowLeft size={18} /></button>
+          </form>
+          <div className="hero-actions">
+            <a className="hero-primary" href="#catalog-search">جست‌وجوی نت‌ها <ArrowLeft size={15} /></a>
+              <a className="hero-secondary" href="#featured-collections">کشف مجموعه‌ها</a>
+          </div>
+        </div>
+        <div className="hero-artwork" aria-label="طرحی از دست‌نوشتهٔ موسیقی">
+          <Image className="hero-art-image" src="/images/score-cover-3.png" alt="" fill priority sizes="(max-width: 760px) 100vw, 48vw" />
+          <div className="hero-art-wash" />
+          <div className="hero-sheet">
+            <span className="hero-sheet-kicker">NUANCE · NO. 01</span>
+            <span className="hero-clef" aria-hidden="true">𝄞</span>
+            <span className="hero-staff" aria-hidden="true"><i /><i /><i /><i /><i /><b>♪</b><b>♩</b><b>♫</b></span>
+            <span className="hero-sheet-caption">A study in quiet expression</span>
+          </div>
+          <span className="artwork-index">EST. MMXXIV <i /> PIANO EDITIONS</span>
+        </div>
+      </section>
+
+      <section className="featured-collections" id="featured-collections" aria-labelledby="collections-title">
+        <div className="editorial-heading">
+          <div><span className="eyebrow">CURATED FOR YOU</span><h2 id="collections-title">مجموعه‌هایی برای کشف</h2></div>
+          <Link href="/scores">دیدن همهٔ مجموعه‌ها <ArrowLeft size={14} /></Link>
+        </div>
+        <div className="collection-grid">
+          <Link className="collection-card collection-classical" href="/classical-piano-sheets">
+            <Image src="/images/score-cover-3.png" alt="" fill sizes="(max-width: 760px) 86vw, 34vw" />
+            <span className="collection-number">01 / COLLECTION</span><span className="collection-title">Classical<br />Piano</span><span className="collection-caption">آثار کلاسیک برای پیانو</span><ArrowLeft className="collection-arrow" size={18} />
+          </Link>
+          <Link className="collection-card collection-iranian" href="/iranian-piano-sheets">
+            <Image src="/images/score-cover-2.png" alt="" fill sizes="(max-width: 760px) 86vw, 34vw" />
+            <span className="collection-number">02 / COLLECTION</span><span className="collection-title">Iranian<br />Melodies</span><span className="collection-caption">ملودی‌های ماندگار ایرانی</span><ArrowLeft className="collection-arrow" size={18} />
+          </Link>
+          <Link className="collection-card collection-film" href="/film-piano-sheets">
+            <Image src="/images/score-cover-6.png" alt="" fill sizes="(max-width: 760px) 86vw, 34vw" />
+            <span className="collection-number">03 / COLLECTION</span><span className="collection-title">Film &<br />Soundtracks</span><span className="collection-caption">روایت‌هایی از موسیقی فیلم</span><ArrowLeft className="collection-arrow" size={18} />
+          </Link>
+        </div>
+      </section>
+
       <RequestPanel />
       <p className="request-note">نت دلخواهت را پیدا کن؛ صفحهٔ اول را رایگان ببین و اجرا را بشنو.</p>
       <section className="published" aria-label="قطعات منتشرشده به درخواست شما">
@@ -116,7 +167,7 @@ export function CatalogHome({ initialQuery = "" }: { initialQuery?: string }) {
       <div className="filter-row" aria-label="دسته‌بندی قطعات">
         <span className="filter-label">دسته‌بندی</span>{categories.map((item) => <button key={item} className={`pill filter-pill ${category === item ? "active" : ""}`} onClick={() => setCategory(item)}>{category === item ? "✓　" : ""}{item}{item === "همه" ? "" : ` (${item === "کلاسیک" ? "۱۴۲" : item === "ترانه‌های ایرانی" ? "۹۵" : item === "موسیقی فیلم" ? "۱۲" : item === "بی‌کلام" ? "۴۶" : item === "محلی" ? "۱۰" : "۳"})`}</button>)}
       </div>
-      <div className="filter-row level-filter" aria-label="سطح نوازندگی">
+      <div className="filter-row level-filter" id="level-filter" aria-label="سطح نوازندگی">
         <span className="filter-label">سطح نوازندگی</span>{levels.map((item) => <button key={item} className={`pill filter-pill ${level === item ? "active" : ""}`} onClick={() => setLevel(item)}>{level === item ? "✓　" : ""}{item}</button>)}
       </div>
       <select className="mobile-level-select" aria-label="سبک و سطح نوازندگی" value={level} onChange={(event) => setLevel(event.target.value)}>
@@ -124,18 +175,18 @@ export function CatalogHome({ initialQuery = "" }: { initialQuery?: string }) {
       </select>
 
       <section aria-labelledby="popular-title">
-        <div className="section-heading"><div><h1 id="popular-title">دانلود نت پیانو</h1><p>محبوب‌ترین قطعه‌ها</p></div><div className="sort-wrap"><label htmlFor="catalog-search">جست‌وجو</label><input className="sort-select" id="catalog-search" value={query} onChange={(event) => { setQuery(event.target.value); setVisible(16); }} placeholder="نام قطعه یا هنرمند" /></div></div>
+        <div className="section-heading"><div><span className="eyebrow">THE LIBRARY</span><h2 id="popular-title">نت‌هایی برای نواختن</h2><p>قطعه‌ای را انتخاب کنید و دنیای آن را کشف کنید.</p></div><span className="result-count">{filteredScores.length.toLocaleString("fa-IR")} اثر</span></div>
         <div className="score-grid">
-          {filteredScores.slice(0, visible).map((score) => <ScoreCard key={score.slug} score={score} liked={liked.includes(score.slug)} onLike={() => setLiked((current) => current.includes(score.slug) ? current.filter((slug) => slug !== score.slug) : [...current, score.slug])} />)}
+          {filteredScores.slice(0, visible).map((score) => <ScoreCard key={score.slug} score={score} liked={liked.includes(score.slug)} onLike={() => toggleLike(score.slug)} />)}
           {!filteredScores.length && <div className="empty-state">قطعه‌ای پیدا نشد. نام یا فیلتر دیگری را امتحان کنید.</div>}
         </div>
         {visible < filteredScores.length && <div className="load-more-wrap"><button className="secondary-button" onClick={() => setVisible((count) => count + 12)}>نمایش نت‌های بیشتر</button></div>}
       </section>
 
       <section className="intro-panel" aria-label="انتخاب و دانلود نت پیانو">
-        <p>نت پیانو آهنگ‌های ایرانی، کلاسیک و موسیقی فیلم را با نام قطعه یا هنرمند پیدا کنید. صفحهٔ اول همهٔ نت‌ها را ببینید، اجرای نمونه را بشنوید و تنظیم مناسب سطح خود را انتخاب کنید.</p>
+        <div className="discovery-intro"><span className="eyebrow">DISCOVER YOUR NEXT PIECE</span><h2>از کجا شروع کنیم؟</h2><p>از آهنگسازان و اجراهای محبوب تا قطعه‌های آسان؛ آرشیو را با حال‌وهوای خودتان جست‌وجو کنید.</p></div>
         <div className="collection-links">
-          <Link className="collection-link" href="/iranian-piano-sheets">نت پیانو ایرانی و فارسی</Link><Link className="collection-link" href="/classical-piano-sheets">نت پیانو کلاسیک</Link><Link className="collection-link" href="/easy-piano-sheets">نت پیانو ساده و آسان</Link><Link className="collection-link" href="/free-piano-sheets">دانلود نت‌های کامل رایگان</Link><Link className="collection-link" href="/film-piano-sheets">نت موسیقی فیلم</Link><Link className="collection-link" href="/instrumental-piano-sheets">نت پیانو بی‌کلام</Link><Link className="collection-link" href="/artists">نت پیانو هنرمندان</Link><Link className="collection-link" href="/scores">فهرست همهٔ قطعات</Link>
+          <Link className="collection-link" href="/artists"><span>01</span> آهنگسازان و هنرمندان</Link><Link className="collection-link" href="/scores"><span>02</span> ساز پیانو</Link><Link className="collection-link" href="/instrumental-piano-sheets"><span>03</span> موسیقی بی‌کلام</Link><Link className="collection-link" href="/easy-piano-sheets"><span>04</span> سطح‌های نوازندگی</Link><Link className="collection-link" href="/free-piano-sheets"><span>05</span> نت‌های رایگان</Link>
         </div>
       </section>
     </main>

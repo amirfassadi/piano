@@ -1,94 +1,199 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useState, type FormEvent } from "react";
-import { ArrowLeft, Music2, Search } from "lucide-react";
-import { scores } from "@/lib/catalog";
+import { useMemo, useState, type FormEvent } from "react";
+import { ArrowUpRight, Search } from "lucide-react";
+import { categories, levels, scores } from "@/lib/catalog";
+import { categoryLabel, levelLabel, roleLabel, t } from "@/lib/i18n";
+import { ScoreCard } from "@/components/score-card";
+import { useLocale } from "@/components/site-shell";
 
-const copy: Record<string, { title: string; description: string }> = {
-  scores: { title: "کتابخانهٔ نت پیانو ایرانی و خارجی", description: "صفحهٔ اول را رایگان ببینید، اجرای نمونه را بشنوید و نسخهٔ مناسب خود را انتخاب کنید." },
-  artists: { title: "نت پیانو هنرمندان", description: "نت پیانو را با نام هنرمند پیدا کنید؛ آثار منتشرشده، نقش آهنگساز و خواننده و سطح تنظیم‌ها را مقایسه کنید." },
-  "song-requests": { title: "آهنگ درخواستیت چیه؟", description: "اسم آهنگ و خواننده یا آهنگسازش، یا یه تیکه از شعرش رو برام بنویس." },
-  subscription: { title: "اشتراک‌های NUANCE", description: "اولین قدم در دنیای موسیقی؛ دسترسی به کتابخانه و ابزارهای تمرین پیانو." },
-  support: { title: "چطور می‌تونیم کمک کنیم؟", description: "راهنمای خرید، پیگیری اشتراک یا گزارش اشکال؛ همه در یک گفتگو." },
-  feedback: { title: "چطور می‌تونیم کمک کنیم؟", description: "راهنمای خرید، پیگیری اشتراک یا گزارش اشکال؛ همه در یک گفتگو." },
-  "start-piano": { title: "شروع برای مبتدی‌ها", description: "از یک ملودی آشنا آغاز کن، هر دست را جدا بشنو و وقتی آماده شدی سراغ اولین قطعهٔ دودستی برو." },
-  "iranian-piano-sheets": { title: "نت پیانو آهنگ‌های ایرانی و فارسی", description: "صفحهٔ اول را رایگان ببینید، اجرای نمونه را بشنوید و نسخهٔ مناسب خود را انتخاب کنید." },
-  "classical-piano-sheets": { title: "نت پیانو کلاسیک", description: "از قطعه‌های کلاسیک شناخته‌شده تا آثار آهنگسازان بزرگ، نت‌ها و نسخه‌های مختلف را پیدا کنید." },
-  "easy-piano-sheets": { title: "نت پیانو ساده و آسان برای شروع تمرین", description: "قطعه‌های آشنا را با تنظیم آسان پیدا کنید؛ سطح هر تنظیم، جداگانه مشخص شده است." },
-  "free-piano-sheets": { title: "دانلود رایگان نت پیانو PDF و اجرا", description: "نت کامل این قطعات رایگان است؛ صفحهٔ اول را ببینید و اجرای کامل را بشنوید." },
-  "film-piano-sheets": { title: "نت پیانو موسیقی فیلم", description: "ملودی‌های فراموش‌نشدنی موسیقی فیلم را برای پیانو پیدا کنید و بشنوید." },
-  "instrumental-piano-sheets": { title: "نت پیانو بی‌کلام", description: "قطعه‌های پیانویی و موسیقی‌های بی‌کلام را بر اساس نام آهنگساز پیدا کنید." },
-  account: { title: "حساب کاربری", description: "برای دسترسی به خریدها و تنظیمات حساب، وارد حساب NUANCE شوید." },
-  settings: { title: "تنظیمات", description: "تنظیمات نمایش و دسترسی‌های شما." },
-  payments: { title: "خریدهای تکی من", description: "فهرست خریدهای شما پس از ورود به حساب نمایش داده می‌شود." },
+const collectionCategories: Record<string, string> = {
+  "iranian-piano-sheets": "ترانه‌های ایرانی",
+  "classical-piano-sheets": "کلاسیک",
+  "film-piano-sheets": "موسیقی فیلم",
+  "instrumental-piano-sheets": "بی‌کلام",
 };
 
-const artists = [
-  ["ابی", "Ebi", "خواننده", "۲ قطعهٔ منتشرشده"], ["اریک ساتی", "Erik Satie", "آهنگساز", "۳ قطعهٔ منتشرشده"], ["اسکات جاپلین", "Scott Joplin", "آهنگساز", "۳ قطعهٔ منتشرشده"], ["عرفان نادریان", "Erfan Naderian", "آهنگساز، تنظیم پیانو", "۹۹ قطعهٔ منتشرشده"], ["فردریک شوپن", "Frédéric Chopin", "آهنگساز", "۱۳ قطعهٔ منتشرشده"], ["فلیکس مندلسون", "Felix Mendelssohn", "آهنگساز", "۴ قطعهٔ منتشرشده"], ["لودوویکو اینائودی", "Ludovico Einaudi", "آهنگساز", "۲ قطعهٔ منتشرشده"], ["لودویگ فان بتهوون", "Ludwig van Beethoven", "آهنگساز", "۵ قطعهٔ منتشرشده"], ["داریوش", "Dariush", "خواننده", "۳ قطعهٔ منتشرشده"], ["گوگوش", "Googoosh", "خواننده", "۵ قطعهٔ منتشرشده"], ["روح‌الله خالقی", "Ruhollah Khaleghi", "آهنگساز", "۲ قطعهٔ منتشرشده"], ["هایده", "Hayedeh", "خواننده", "۴ قطعهٔ منتشرشده"],
-];
+const pageCopy: Record<string, { title: string; description: string }> = {
+  scores: { title: "sectionScoresTitle", description: "sectionScoresLead" },
+  artists: { title: "artistsTitle", description: "artistsLead" },
+  "song-requests": { title: "requestPageTitle", description: "requestPageLead" },
+  subscription: { title: "navMembership", description: "membershipNote" },
+  support: { title: "supportTitle", description: "supportLead" },
+  feedback: { title: "supportTitle", description: "supportLead" },
+  "start-piano": { title: "guideTitle", description: "guideLead" },
+  "iranian-piano-sheets": { title: "sectionScoresTitle", description: "sectionScoresLead" },
+  "classical-piano-sheets": { title: "sectionScoresTitle", description: "sectionScoresLead" },
+  "easy-piano-sheets": { title: "difficultyTitle", description: "difficultyLead" },
+  "free-piano-sheets": { title: "freeScores", description: "sectionScoresLead" },
+  "film-piano-sheets": { title: "sectionScoresTitle", description: "sectionScoresLead" },
+  "instrumental-piano-sheets": { title: "sectionScoresTitle", description: "sectionScoresLead" },
+  account: { title: "navAccount", description: "accountUnavailableCopy" },
+  settings: { title: "settingsTitle", description: "settingsCopy" },
+  payments: { title: "paymentsTitle", description: "paymentsCopy" },
+};
 
-function RequestForm() {
-  const [term, setTerm] = useState("");
+const translatedPageCopy: Record<string, { title: string; description: string }> = {
+  "iranian-piano-sheets": { title: "نت پیانو ترانه‌های ایرانی", description: "ترانه‌های ایرانی را از میان نت‌های موجود برای پیانو پیدا کنید." },
+  "classical-piano-sheets": { title: "نت پیانو کلاسیک", description: "از ملودی‌های شناخته‌شده تا آثار آهنگسازان کلاسیک، نت‌های موجود را ببینید." },
+  "easy-piano-sheets": { title: "نت پیانو آسان", description: "قطعه‌های موجود را بر اساس سطح دشواری بررسی کنید." },
+  "free-piano-sheets": { title: "نت‌های رایگان", description: "نت‌هایی را ببینید که در داده‌های این کتابخانه به‌عنوان رایگان مشخص شده‌اند." },
+  "film-piano-sheets": { title: "نت پیانو موسیقی فیلم", description: "ملودی‌های فیلم موجود در مجموعهٔ پیانو را پیدا کنید." },
+  "instrumental-piano-sheets": { title: "نت‌های بی‌کلام پیانو", description: "آثار بی‌کلام موجود را بر اساس آهنگساز و نام قطعه ببینید." },
+};
+
+const artists = Array.from(new Set(scores.map((score) => score.artist).filter(Boolean))).map((name) => {
+  const works = scores.filter((score) => score.artist === name);
+  return { name, role: works[0]?.role ?? "", count: works.length, slugs: works.map((score) => score.slug) };
+});
+
+function RequestForm({ initialQuery }: { initialQuery: string }) {
+  const { locale } = useLocale();
+  const [term, setTerm] = useState(initialQuery);
   const [submitted, setSubmitted] = useState(false);
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (term.trim()) setSubmitted(true);
   }
   return <form className="request-page-form" onSubmit={handleSubmit}>
-    <label htmlFor="request-song">آهنگ درخواستی تو</label>
-    <input id="request-song" value={term} onChange={(event) => { setTerm(event.target.value); setSubmitted(false); }} placeholder="اسم آهنگ، خواننده یا بخشی از شعر..." required />
-    <button className="primary-button" type="submit">بررسی کن <ArrowLeft size={16} /></button>
-    {submitted && <p className="notice" role="status">درخواست «{term}» در این نسخهٔ نمایشی ثبت شد.</p>}
-    <p>این نسخهٔ بازسازی‌شده، درخواست را فقط در همین صفحه نمایش می‌دهد و اطلاعاتی به سرویس اصلی ارسال نمی‌کند.</p>
+    <label htmlFor="request-song">{t(locale, "requestField")}</label>
+    <input id="request-song" value={term} onChange={(event) => { setTerm(event.target.value); setSubmitted(false); }} placeholder={t(locale, "heroSearchPlaceholder")} required />
+    <button className="primary-button" type="submit">{t(locale, "requestSubmit")} <ArrowUpRight size={15} /></button>
+    {submitted && <p className="notice" role="status">{t(locale, "requestDemoNotice")}</p>}
   </form>;
 }
 
 function SupportForm() {
+  const { locale } = useLocale();
   const [submitted, setSubmitted] = useState(false);
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
   }
   return <form className="request-page-form" onSubmit={handleSubmit}>
-    <label htmlFor="support-topic">موضوع پیام</label>
-    <select id="support-topic" defaultValue="راهنمای خرید"><option>راهنمای خرید</option><option>پیگیری اشتراک</option><option>گزارش اشکال</option><option>سایر موارد</option></select>
-    <label htmlFor="support-message">پیام شما</label>
-    <textarea id="support-message" placeholder="جزئیات بیشتری بنویسید..." required />
-    <button className="primary-button" type="submit">ارسال پیام</button>
-    {submitted && <p className="notice" role="status">پیام شما در این نسخهٔ نمایشی ثبت شد؛ به سرویس پشتیبانی اصلی ارسال نشده است.</p>}
+    <label htmlFor="support-topic">{t(locale, "supportTopic")}</label>
+    <select id="support-topic" defaultValue="purchase">
+      <option value="purchase">{t(locale, "topicPurchase")}</option>
+      <option value="subscription">{t(locale, "topicSubscription")}</option>
+      <option value="issue">{t(locale, "topicIssue")}</option>
+      <option value="other">{t(locale, "topicOther")}</option>
+    </select>
+    <label htmlFor="support-message">{t(locale, "supportMessage")}</label>
+    <textarea id="support-message" placeholder={t(locale, "supportMessage")} required onChange={() => setSubmitted(false)} />
+    <button className="primary-button" type="submit">{t(locale, "supportSubmit")} <ArrowUpRight size={15} /></button>
+    {submitted && <p className="notice" role="status">{t(locale, "supportDemoNotice")}</p>}
   </form>;
 }
 
-export function CollectionPage({ section }: { section: string }) {
-  const [filter, setFilter] = useState("");
-  const page = copy[section];
+function MembershipPage() {
+  const { locale } = useLocale();
+  const rows = [
+    ["featureFreeScores", "✓", "✓", "✓"],
+    ["featurePreview", locale === "en" ? "First page" : "صفحهٔ نخست", "Full", "Full"],
+    ["featurePlayback", locale === "en" ? "Limited" : "محدود", "✓", "✓"],
+    ["featureArrangements", locale === "en" ? "Preview" : "پیش‌نمایش", "✓", "✓"],
+    ["featureSave", "×", "✓", "✓"],
+    ["featureNew", "×", "✓", "✓"],
+    ["featurePractice", "×", "×", "✓"],
+    ["featurePdf", "×", "×", locale === "en" ? "Daily limit" : "محدودیت روزانه"],
+  ];
+  return <>
+    <div className="membership-note notice" role="note">{t(locale, "membershipNote")}</div>
+    <div className="membership-grid">
+      <article className="membership-card"><span className="eyebrow">01 / {t(locale, "planBasic")}</span><h2>{t(locale, "planBasic")}</h2><p>{t(locale, "planBasicLead")}</p><strong className="membership-price">887,753 <small>toman</small></strong><span className="membership-period">{t(locale, "sixMonthTotal")} · 147,959 {locale === "en" ? "toman/month" : "تومان در ماه"}</span><Link className="text-link" href="/account">{t(locale, "accountInformation")} <ArrowUpRight size={15} /></Link></article>
+      <article className="membership-card featured-membership"><span className="eyebrow">02 / {t(locale, "planPro")}</span><h2>{t(locale, "planPro")}</h2><p>{t(locale, "planProLead")}</p><strong className="membership-price">999,000 <small>toman</small></strong><span className="membership-period">{t(locale, "sixMonthTotal")} · 166,500 {locale === "en" ? "toman/month" : "تومان در ماه"}</span><Link className="text-link" href="/account">{t(locale, "accountInformation")} <ArrowUpRight size={15} /></Link></article>
+    </div>
+    <section className="feature-table-wrap" aria-labelledby="feature-table-title">
+      <div className="section-heading"><div><span className="eyebrow">NUANCE / ACCESS</span><h2 id="feature-table-title">{t(locale, "featuresTitle")}</h2></div></div>
+      <div className="table-scroll"><table className="feature-table"><thead><tr><th scope="col">{t(locale, "featureName")}</th><th scope="col">{t(locale, "free")}</th><th scope="col">{t(locale, "basic")}</th><th scope="col">{t(locale, "pro")}</th></tr></thead><tbody>{rows.map(([key, free, basic, pro]) => <tr key={key}><th scope="row">{t(locale, key as Parameters<typeof t>[1])}</th><td>{free}</td><td>{basic}</td><td>{pro}</td></tr>)}</tbody></table></div>
+      <p className="notice">{t(locale, "membershipNote")}</p>
+    </section>
+  </>;
+}
+
+export function CollectionPage({ section, initialQuery = "", initialCategory = "" }: { section: string; initialQuery?: string; initialCategory?: string }) {
+  const { locale } = useLocale();
+  const initialCategoryForPage = collectionCategories[section] ?? (categories.includes(initialCategory) && section === "scores" ? initialCategory : "همه");
+  const [filter, setFilter] = useState(initialQuery);
+  const [categoryFilter, setCategoryFilter] = useState(initialCategoryForPage);
+  const [levelFilter, setLevelFilter] = useState("همهٔ سطح‌ها");
   const isArtist = section === "artists";
   const isRequest = section === "song-requests";
   const isSubscription = section === "subscription";
   const isSupport = section === "support" || section === "feedback";
   const isAccount = ["account", "settings", "payments"].includes(section);
-  const category = section === "iranian-piano-sheets" ? "ترانه‌های ایرانی" : section === "classical-piano-sheets" ? "کلاسیک" : section === "film-piano-sheets" ? "موسیقی فیلم" : section === "instrumental-piano-sheets" ? "بی‌کلام" : "";
-  const matchingScores = scores.filter((score) => (category ? score.category === category : section === "free-piano-sheets" ? score.free : section === "easy-piano-sheets" ? score.level.includes("آسان") : true));
+  const isGuide = section === "start-piano";
+  const page = pageCopy[section] ?? pageCopy.scores;
+  const persianSpecialCopy = translatedPageCopy[section];
+  const pageTitle = locale === "fa" && persianSpecialCopy ? persianSpecialCopy.title : t(locale, page.title as Parameters<typeof t>[1]);
+  const pageDescription = locale === "fa" && persianSpecialCopy ? persianSpecialCopy.description : t(locale, page.description as Parameters<typeof t>[1]);
 
-  return <main className="page-wrap content-page">
-    <div className="breadcrumbs"><Link href="/">خانه</Link>　/　{page.title}</div>
-    <header className="content-hero"><span className="eyebrow">NUANCE · کتابخانهٔ پیانو</span><h1>{page.title}</h1><p>{page.description}</p></header>
+  const filteredArtists = useMemo(() => artists.filter((artist) => !filter.trim() || `${artist.name} ${artist.role}`.toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US").includes(filter.trim().toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US"))), [filter, locale]);
+  const visibleScores = useMemo(() => scores.filter((score) => {
+    let category = categoryFilter;
+    if (section === "easy-piano-sheets") return score.level.includes("آسان") && (!filter.trim() || `${score.title} ${score.latin} ${score.artist}`.toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase())) && (levelFilter === "همهٔ سطح‌ها" || score.level.includes(levelFilter));
+    if (section === "free-piano-sheets" && !score.free) return false;
+    if (category === "همه") category = "";
+    const searchable = `${score.title} ${score.latin} ${score.artist}`.toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US");
+    return (!category || score.category === category) && (levelFilter === "همهٔ سطح‌ها" || score.level.includes(levelFilter)) && (!filter.trim() || searchable.includes(filter.trim().toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US")));
+  }), [categoryFilter, filter, levelFilter, locale, section]);
 
-    {isArtist && <><h2>همهٔ هنرمندان</h2><div className="listing-grid">{artists.map(([name, latin, role, count]) => <article className="artist-card" key={name}><small>{role}</small><strong>{name}</strong><span>{latin}</span><p>{count}</p><Link href={`/artists?q=${encodeURIComponent(name)}`}>انتخاب از نت‌های {name} ←</Link></article>)}</div><section className="intro-panel"><h2>قطعه را چگونه انتخاب کنم؟</h2><p>در فهرست هنرمند، نام قطعه و تنظیم‌های موجود را مقایسه کنید. صفحهٔ اول هر نت واضح و رایگان است؛ اجرای نمونه و سطح هر تنظیم به بررسی ریتم و همراهی کمک می‌کنند.</p></section></>}
+  return <main className="page-wrap content-page" id="main-content">
+    <nav className="breadcrumbs" aria-label={locale === "en" ? "Breadcrumb" : "مسیر صفحه"}><Link href="/">{t(locale, "breadcrumbsHome")}</Link><span aria-hidden="true">/</span><Link href="/scores">{t(locale, "breadcrumbsLibrary")}</Link><span aria-hidden="true">/</span><span>{pageTitle}</span></nav>
+    <header className="content-hero">
+      <span className="eyebrow">{t(locale, "sectionLabel")}</span>
+      <h1 className="display-title">{pageTitle}</h1>
+      <p>{pageDescription}</p>
+    </header>
 
-    {isRequest && <><RequestForm /><section className="intro-panel"><h2>بیشترین درخواست‌های در انتظار</h2><div className="collection-links">{["بر فراز آسمان‌ها", "رقص بهار — Dance of Spring", "طلوع"].map((name) => <span className="collection-link" key={name}>{name}</span>)}</div></section></>}
+    {isArtist && <section className="section-block" aria-labelledby="artist-list-title">
+      <div className="section-heading editorial-heading">
+        <div><span className="eyebrow">NUANCE / INDEX</span><h2 id="artist-list-title">{t(locale, "artistsTitle")}</h2><p>{t(locale, "artistsLead")}</p></div>
+        <label className="catalog-search"><Search size={16} aria-hidden="true" /><span className="visually-hidden">{t(locale, "searchLabel")}</span><input aria-label={t(locale, "searchLabel")} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={t(locale, "searchPlaceholder")} /></label>
+      </div>
+      <div className="artist-grid">{filteredArtists.map((artist, index) => <article className="artist-card" key={artist.name}>
+        <span className="artist-index">{String(index + 1).padStart(2, "0")}</span>
+        <span className="artist-role">{roleLabel(artist.role, locale)}</span>
+        <h3 dir="auto">{artist.name}</h3>
+        <p>{artist.count.toLocaleString(locale === "fa" ? "fa-IR" : "en-US")} {t(locale, "works")}</p>
+        <Link href={`/scores?q=${encodeURIComponent(artist.name)}`}>{t(locale, "chooseScores")} <ArrowUpRight size={14} /></Link>
+      </article>)}{filteredArtists.length === 0 && <p className="empty-state">{t(locale, "emptyArtists")}</p>}</div>
+    </section>}
 
-    {isSubscription && <><div className="listing-grid"><article className="price-card"><h2>پایه</h2><p>دسترسی به کل کتابخانه؛ ۳۰۸ نت با امکان شنیدن</p><div className="amount">۸۸۷٬۷۵۳ تومان</div><small>مبلغ کل ۶ ماه · ماهانه ۱۴۷٬۹۵۹ تومان</small><Link href="/account" className="secondary-button">انتخاب اشتراک پایه</Link></article><article className="price-card featured"><h2>حرفه‌ای</h2><p>کتابخانه، دانلود PDF، تمرین نت‌خوانی و تمرین نوازندگی تعاملی</p><div className="amount">۹۹۹٬۰۰۰ تومان</div><small>مبلغ کل ۶ ماه · ماهانه ۱۶۶٬۵۰۰ تومان</small><Link href="/account" className="primary-button">انتخاب اشتراک حرفه‌ای</Link></article></div><table className="feature-table"><thead><tr><th>امکانات</th><th>رایگان</th><th>پایه</th><th>حرفه‌ای</th></tr></thead><tbody>{[["قطعات رایگان و بازی شناخت نت‌ها", "✓", "✓", "✓"], ["نمایش و اجرای نت‌های اشتراکی", "فقط صفحهٔ اول", "کامل", "کامل"], ["سرعت، مترونوم و تفکیک دست‌ها", "محدود", "کامل", "کامل"], ["تمرین نوازندگی تعاملی", "×", "×", "✓"], ["دانلود PDF", "×", "×", "روزانه ۳ نت"]].map((row) => <tr key={row[0]}>{row.map((cell) => <td key={cell}>{cell}</td>)}</tr>)}</tbody></table><p className="notice">این بازسازی پرداخت واقعی یا خرید اشتراک را انجام نمی‌دهد.</p></>}
+    {isRequest && <section className="request-content section-block"><RequestForm initialQuery={initialQuery} /><div className="request-archive"><span className="eyebrow">NUANCE / REQUESTS</span><h2>{locale === "en" ? "Recently added from requests" : "نت‌های تازه بر اساس درخواست"}</h2><div className="request-score-links">{scores.filter((score) => score.recent).slice(0, 3).map((score) => <Link key={score.slug} href={`/sheet/${score.slug}`}><span dir="auto">{score.title}</span><small dir="auto">{score.artist}</small><ArrowUpRight size={14} /></Link>)}</div></div></section>}
 
-    {isSupport && <div className="info-card"><h2>پشتیبانی NUANCE</h2><p>برای راهنمای خرید، پیگیری اشتراک یا گزارش اشکال، موضوع پیام خود را انتخاب کنید.</p><SupportForm /></div>}
-    {isAccount && <div className="info-card"><h2>این بخش به حساب کاربری نیاز دارد</h2><p>ورود، پیگیری خرید و ذخیرهٔ حساب به سرویس اصلی متصل نشده‌اند و در این بازسازی شبیه‌سازی نمی‌شوند.</p><Link className="secondary-button" href="/">بازگشت به کتابخانه</Link></div>}
+    {isSubscription && <section className="section-block"><MembershipPage /></section>}
 
-    {section === "start-piano" && <><div className="listing-grid"><Link className="info-card" href="/sheet/happy-birthday"><Music2 /><h2>آهنگ تولد را یاد بگیر و اجرایت را هدیه بده</h2><p>نت را قدم‌به‌قدم تمرین کن و هر دست را جدا بشنو.</p></Link><Link className="info-card" href="/sheet/nefeli"><Music2 /><h2>گل ارکیده؛ اولین آهنگ دودستی</h2><p>یک قطعهٔ شنیدنی برای شروع هماهنگی دو دست.</p></Link></div><h2>آهنگ‌های سادهٔ بیشتر</h2></>}
+    {isSupport && <section className="support-layout section-block"><div className="support-aside"><span className="eyebrow">NUANCE / CARE</span><h2>{t(locale, "supportTitle")}</h2><p>{t(locale, "supportLead")}</p><div className="support-note"><span>NOTE</span><p>{t(locale, "supportDemoNotice")}</p></div></div><SupportForm /></section>}
 
-    {!isArtist && !isRequest && !isSubscription && !isSupport && !isAccount && <section><div className="section-heading"><div><h2>نت‌ها را ببینید و انتخاب کنید</h2><p>پیش‌نمایش نت و اجرای نمونه</p></div><label className="global-search"><Search size={16} /><input aria-label="جستجو در فهرست" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="جستجو در فهرست" /></label></div><div className="score-grid">{matchingScores.filter((score) => `${score.title} ${score.latin} ${score.artist}`.toLowerCase().includes(filter.toLowerCase())).map((score, index) => <Link className="score-card" href={`/sheet/${score.slug}`} key={score.slug}><div className="cover-wrap"><Image className="cover-image" src={score.cover} alt={`پیش‌نمایش نت ${score.title}`} fill priority={index === 0} sizes="(max-width: 760px) 50vw, 25vw" /><span className="cover-overlay" /><span className="sheet-lines" aria-hidden="true"><i /><i /><i /><i /><i /></span></div><div className="card-body"><h3 className="score-title">{score.title}</h3><span className="score-latin">{score.latin}</span><span className="score-credit">{score.artist}</span><div className="card-meta"><span className="level-badge">{score.level}</span><span className="price-badge">{score.price}</span></div></div></Link>)}</div></section>}
+    {isAccount && <section className="account-panel section-block">
+      <span className="eyebrow">NUANCE / {section === "payments" ? "PURCHASES" : "ACCOUNT"}</span>
+      <h2>{section === "settings" ? t(locale, "settingsTitle") : section === "payments" ? t(locale, "paymentsTitle") : t(locale, "accountUnavailableTitle")}</h2>
+      <p>{section === "settings" ? t(locale, "settingsCopy") : section === "payments" ? t(locale, "paymentsCopy") : t(locale, "accountUnavailableCopy")}</p>
+      {section !== "settings" && <Link href="/scores" className="text-link">{t(locale, "backLibrary")} <ArrowUpRight size={15} /></Link>}
+    </section>}
 
-    <section className="intro-panel"><h2>انتخاب نت پیانو</h2><p>نام فارسی یا لاتین قطعه را پیدا کنید، سپس تنظیم‌های منتشرشده را در صفحهٔ همان اثر مقایسه کنید. تعداد صفحات و سطح هر نسخه مشخص است.</p><div className="collection-links"><Link className="collection-link" href="/scores">کتابخانهٔ کامل</Link><Link className="collection-link" href="/artists">همهٔ هنرمندان</Link><Link className="collection-link" href="/subscription">خرید اشتراک</Link></div></section>
+    {isGuide && <section className="guide-picks section-block" aria-label={t(locale, "guideTitle")}>
+      {scores.filter((score) => ["happy-birthday", "nefeli"].includes(score.slug)).map((score, index) => <ScoreCard key={score.slug} score={score} index={index} />)}
+    </section>}
+
+    {!isArtist && !isRequest && !isSubscription && !isSupport && !isAccount && !isGuide && <section className="section-block collection-results" aria-labelledby="collection-results-title">
+      <div className="section-heading editorial-heading">
+        <div><span className="eyebrow">NUANCE / COLLECTION</span><h2 id="collection-results-title">{t(locale, "catalogTitle")}</h2><p>{t(locale, "catalogLead")}</p></div>
+        <label className="catalog-search"><Search size={16} aria-hidden="true" /><span className="visually-hidden">{t(locale, "searchLabel")}</span><input type="search" dir="auto" aria-label={t(locale, "searchLabel")} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={t(locale, "searchPlaceholder")} /></label>
+      </div>
+      {section === "scores" && <div className="filter-set collection-filter-set" aria-label={t(locale, "filterCategory")}>
+        {categories.map((item) => <button type="button" key={item} className={`filter-chip ${categoryFilter === item ? "selected" : ""}`} aria-pressed={categoryFilter === item} onClick={() => setCategoryFilter(item)}>{categoryLabel(item, locale)}</button>)}
+      </div>}
+      <div className="filter-set level-set">
+        <span className="filter-caption">{t(locale, "filterLevel")}</span>
+        {levels.map((item) => <button type="button" key={item} className={`filter-chip ${levelFilter === item ? "selected" : ""}`} aria-pressed={levelFilter === item} onClick={() => setLevelFilter(item)}>{item === levels[0] ? t(locale, "allLevels") : levelLabel(item, locale)}</button>)}
+      </div>
+      <div className="results-line"><span>{visibleScores.length.toLocaleString(locale === "fa" ? "fa-IR" : "en-US")} {t(locale, "countScores")}</span><span className="results-rule" /></div>
+      <div className="score-grid collection-score-grid">{visibleScores.map((score, index) => <ScoreCard key={score.slug} score={score} index={index} />)}{visibleScores.length === 0 && <p className="empty-state">{t(locale, "noResults")}</p>}</div>
+    </section>}
+
+    {!isRequest && !isSupport && <section className="archive-note section-block"><div><span className="eyebrow">NUANCE / ARCHIVE</span><h2>{t(locale, "archiveNoteTitle")}</h2><p>{t(locale, "archiveNoteCopy")}</p></div><div className="archive-note-links"><Link href="/scores">{t(locale, "allScores")} <ArrowUpRight size={14} /></Link><Link href="/artists">{t(locale, "navArtists")} <ArrowUpRight size={14} /></Link><Link href="/subscription">{t(locale, "navMembership")} <ArrowUpRight size={14} /></Link></div></section>}
   </main>;
 }

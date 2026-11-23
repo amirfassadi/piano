@@ -9,8 +9,8 @@ export function generateStaticParams() {
   return sections.map((section) => ({ section }));
 }
 
-export default async function SectionRoute({ params }: { params: Promise<{ section: string }> }) {
-  const { section } = await params;
+export default async function SectionRoute({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ q?: string; category?: string }> }) {
+  const [{ section }, { q = "", category = "" }] = await Promise.all([params, searchParams]);
   if (!sections.includes(section)) notFound();
-  return <CollectionPage section={section} />;
+  return <CollectionPage section={section} initialQuery={q} initialCategory={category} />;
 }

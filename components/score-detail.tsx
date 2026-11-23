@@ -1,55 +1,89 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Download, Headphones, Heart, Pause, Play, Repeat2, Waves } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowUpRight, Download, Heart, Pause, Play, Repeat2, Waves } from "lucide-react";
 import { scores, type Score } from "@/lib/catalog";
-import { useFavorites } from "@/components/site-shell";
+import { accessLabel, categoryLabel, levelLabel, roleLabel, t } from "@/lib/i18n";
+import { ScoreCard } from "@/components/score-card";
+import { useFavorites, useLocale } from "@/components/site-shell";
 
-const arrangements = ["آسان", "نسخهٔ اصلی · متوسط", "سخت"];
 const notes = [523.25, 587.33, 659.25, 698.46, 783.99, 698.46, 659.25, 587.33, 523.25];
 
+function difficultyOptions(level: string, locale: "en" | "fa"): string[] {
+  const easy = t(locale, "levelEasy");
+  const medium = t(locale, "levelIntermediate");
+  const hard = t(locale, "levelAdvanced");
+  if (level.includes("آسان") && level.includes("سخت")) return [easy, medium, hard];
+  if (level.includes("آسان") && level.includes("متوسط")) return [easy, medium];
+  if (level.includes("متوسط") && level.includes("سخت")) return [medium, hard];
+  if (level.includes("آسان")) return [easy];
+  if (level.includes("متوسط")) return [medium];
+  if (level.includes("سخت")) return [hard];
+  return [];
+}
+
 export function ScoreDetail({ score }: { score: Score }) {
+  const { locale } = useLocale();
   const { liked, toggleLike } = useFavorites();
   const isLiked = liked.includes(score.slug);
-  const [arrangement, setArrangement] = useState("نسخهٔ اصلی · متوسط");
-  const [mode, setMode] = useState("حالت برگه‌ای");
+  const choices = useMemo(() => difficultyOptions(score.level, locale), [locale, score.level]);
+  const [arrangementIndex, setArrangementIndex] = useState(0);
+  const [mode, setMode] = useState("sheet");
   const [tempo, setTempo] = useState(92);
   const [playing, setPlaying] = useState(false);
   const [notice, setNotice] = useState("");
   const audioRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteIndexRef = useRef(0);
+  const tempoRef = useRef(tempo);
+
+  useEffect(() => { tempoRef.current = tempo; }, [tempo]);
 
   function stopPreview() {
     if (timerRef.current) clearTimeout(timerRef.current);
     setPlaying(false);
   }
 
-  function playPreview() {
-    if (playing) { stopPreview(); return; }
+  function startPreview() {
     const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) { setNotice("پخش نمونه در این مرورگر پشتیبانی نمی‌شود."); return; }
+    if (!AudioContextClass) { setNotice(t(locale, "unsupportedAudio")); return; }
     const context = audioRef.current ?? new AudioContextClass();
     audioRef.current = context;
     void context.resume();
+    noteIndexRef.current = 0;
     setPlaying(true);
-    setNotice("اجرای نمونهٔ کوتاه برای پیش‌نمایش فعال است.");
+    setNotice(t(locale, "previewNotice"));
     const playNext = () => {
       const oscillator = context.createOscillator();
       const gain = context.createGain();
       oscillator.type = "sine";
       oscillator.frequency.value = notes[noteIndexRef.current % notes.length];
       gain.gain.setValueAtTime(0.0001, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.055, context.currentTime + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.38);
+      gain.gain.exponentialRampToValueAtTime(0.045, context.currentTime + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.36);
       oscillator.connect(gain).connect(context.destination);
       oscillator.start();
-      oscillator.stop(context.currentTime + 0.4);
+      oscillator.stop(context.currentTime + 0.38);
       noteIndexRef.current += 1;
-      timerRef.current = setTimeout(playNext, 60000 / tempo);
+      timerRef.current = setTimeout(playNext, 60000 / tempoRef.current);
     };
     playNext();
+  }
+
+  function togglePreview() {
+    if (playing) stopPreview();
+    else startPreview();
+  }
+
+  function restartPreview() {
+    const shouldResume = playing;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    noteIndexRef.current = 0;
+    setPlaying(false);
+    if (shouldResume) window.setTimeout(startPreview, 0);
+    else setNotice(locale === "en" ? "Preview position reset." : "پیش‌نمایش به ابتدا بازگشت.");
   }
 
   useEffect(() => () => {
@@ -57,35 +91,62 @@ export function ScoreDetail({ score }: { score: Score }) {
     if (audioRef.current) void audioRef.current.close();
   }, []);
 
-  return <main className="page-wrap content-page">
-    <div className="breadcrumbs"><Link href="/">خانه</Link>　/　<Link href="/scores">کتابخانه</Link>　/　{score.title}</div>
-    <div className="content-hero detail-hero"><span className="eyebrow">NUANCE · SHEET MUSIC EDITION</span><h1>نت پیانو {score.title} <small dir="auto">({score.latin})</small></h1><p>{score.role} {score.artist} · صفحهٔ اول را رایگان ببینید و تنظیم مناسب خود را انتخاب کنید.</p><div className="detail-hero-meta"><span>PIANO</span><span>{score.category}</span><span>{score.level}</span></div></div>
+  const related = scores.filter((item) => item.slug !== score.slug && item.category === score.category).slice(0, 3);
+  const relatedScores = related.length >= 3 ? related : [...related, ...scores.filter((item) => item.slug !== score.slug && item.category !== score.category)].slice(0, 3);
+  const credit = [roleLabel(score.role, locale), score.artist].filter(Boolean).join(" · ");
+  const selectedArrangement = choices[arrangementIndex] ?? t(locale, "levelSelect");
+
+  return <main className="page-wrap content-page score-detail-page" id="main-content">
+    <nav className="breadcrumbs" aria-label={locale === "en" ? "Breadcrumb" : "مسیر صفحه"}><Link href="/">{t(locale, "breadcrumbsHome")}</Link><span aria-hidden="true">/</span><Link href="/scores">{t(locale, "breadcrumbsLibrary")}</Link><span aria-hidden="true">/</span><span dir="auto">{score.title}</span></nav>
+    <header className="score-detail-hero">
+      <div className="detail-title-block"><span className="eyebrow">NUANCE / SCORE {score.slug.toUpperCase()}</span><h1 className="display-title" dir="auto">{score.title}</h1><p dir="auto">{score.latin} {credit && <span>· {credit}</span>}</p></div>
+      <div className="detail-art"><Image src={score.cover} alt={`${locale === "en" ? "Artwork for" : "تصویر هنری برای"} ${score.title}`} fill sizes="(max-width: 700px) 100vw, 42vw" /></div>
+    </header>
+    <div className="detail-meta-row" aria-label={locale === "en" ? "Score details" : "جزئیات نت"}>
+      <span><small>{t(locale, "instrument")}</small><strong>{t(locale, "instrument")}</strong></span>
+      <span><small>{t(locale, "category")}</small><strong>{categoryLabel(score.category, locale)}</strong></span>
+      <span><small>{t(locale, "difficulty")}</small><strong>{levelLabel(score.level, locale)}</strong></span>
+      <span><small>{t(locale, "access")}</small><strong>{accessLabel(score.price, score.free, locale)}</strong></span>
+    </div>
+
     <div className="detail-layout">
-      <section className="sheet-preview" aria-label={`پیش‌نمایش نت ${score.title}`}>
-        {mode === "حالت برگه‌ای" ? <div className="fake-sheet"><div className="staff-label"><span>𝄞</span><strong>{score.title}</strong><span>4/4</span></div><div className="staff-label"><span>♪</span><span>♩　♫　♬　♩　♪</span><span>𝄢</span></div><div className="staff-label"><span>𝄞</span><span>♪　♬　♩　♫　♩</span><span>𝄢</span></div><div className="staff-label"><span>♩</span><span>♫　♪　♬　♪</span><span>♩</span></div></div> : <div className="fake-sheet waterfall"><div className="staff-label"><span>𝄞</span><span>♪　♬　♩　♫</span></div><div className="staff-label"><span>♬　♩　♫　♪</span></div><div className="staff-label"><span>♪　♫　♩　♬</span></div></div>}
+      <section className="sheet-preview" aria-labelledby="preview-title">
+        <div className="preview-label"><span className="eyebrow">NUANCE / PREVIEW</span><h2 id="preview-title">{t(locale, "previewKicker")}</h2></div>
+        <div className={`fake-sheet ${mode === "roll" ? "reading-mode" : mode === "waterfall" ? "waterfall-mode" : ""}`} aria-hidden="true">
+          <div className="paper-heading"><span>NUANCE · {score.slug.toUpperCase()}</span><strong dir="auto">{score.title}</strong><small dir="auto">{score.artist}</small></div>
+          <div className="music-staff"><span className="clef">𝄞</span><div className="staff-lines"><span>♪　♩　♫　♬　♪　♩</span></div></div>
+          <div className="music-staff"><span className="clef">𝄢</span><div className="staff-lines"><span>♩　♬　♪　♩　♫　♪</span></div></div>
+          <div className="music-staff"><span className="clef">𝄞</span><div className="staff-lines"><span>♬　♪　♩　♫　♩　♬</span></div></div>
+          <span className="paper-folio">01</span>
+        </div>
+        <p className="disclosure-note">{t(locale, "previewDisclosure")}</p>
       </section>
       <aside className="detail-side">
-        <span className="eyebrow">پیش‌نمایش نت و اجرای نمونه</span><h1>{score.title}</h1><p>{score.role} {score.artist}</p>
-        <button className={`detail-favorite ${isLiked ? "liked" : ""}`} onClick={() => toggleLike(score.slug)} aria-pressed={isLiked}>
-          <Heart size={16} fill={isLiked ? "currentColor" : "none"} />{isLiked ? "ذخیره‌شده در علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}
+        <span className="eyebrow">NUANCE / PRACTICE</span>
+        <h2 dir="auto">{score.title}</h2>
+        <p className="detail-credit" dir="auto">{credit || score.artist}</p>
+        <button type="button" className={`detail-favorite ${isLiked ? "liked" : ""}`} onClick={() => toggleLike(score.slug)} aria-pressed={isLiked}>
+          <Heart size={15} fill={isLiked ? "currentColor" : "none"} aria-hidden="true" />
+          {t(locale, isLiked ? "removeSavedScore" : "saveScore")}
         </button>
         <div className="detail-controls">
-          <button onClick={playPreview}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? "توقف" : "پخش نمونه"}</button>
-          <button onClick={() => { noteIndexRef.current = 0; if (playing) stopPreview(); }}><Repeat2 size={15} />از ابتدا</button>
-          <button onClick={() => setNotice("دریافت PDF به حساب و دسترسی خرید نیاز دارد.")}><Download size={15} />دانلود PDF</button>
+          <button type="button" className="primary-button" onClick={togglePreview}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? t(locale, "stopPreview") : t(locale, "playPreview")}</button>
+          <button type="button" className="outline-button" onClick={restartPreview}><Repeat2 size={15} />{t(locale, "restartPreview")}</button>
         </div>
-        <div className="tempo-control"><Headphones size={16} /><label htmlFor="tempo">سرعت: {tempo} BPM</label></div>
-        <input id="tempo" type="range" min="40" max="180" value={tempo} onChange={(event) => setTempo(Number(event.target.value))} />
-        <div className="detail-controls" aria-label="حالت نمایش نت">{["حالت برگه‌ای", "حالت رولی", "آبشار نت"].map((item) => <button key={item} className={mode === item ? "selected" : ""} aria-pressed={mode === item} onClick={() => setMode(item)}>{item === "آبشار نت" ? <Waves size={14} /> : null}{item}</button>)}</div>
+        <label className="tempo-control" htmlFor="tempo"><span>{t(locale, "tempo")}</span><output>{tempo} BPM</output></label>
+        <input className="tempo-slider" id="tempo" type="range" min="40" max="180" value={tempo} onChange={(event) => setTempo(Number(event.target.value))} />
+        <div className="detail-controls mode-controls" aria-label={locale === "en" ? "Preview layout" : "حالت نمایش پیش‌نمایش"}>
+          {["sheet", "roll", "waterfall"].map((item) => <button type="button" key={item} className={mode === item ? "selected" : ""} aria-pressed={mode === item} onClick={() => setMode(item)}>{item === "waterfall" && <Waves size={14} />}{t(locale, item === "sheet" ? "modeSheet" : item === "roll" ? "modeRoll" : "modeWaterfall")}</button>)}
+        </div>
         {notice && <p className="notice" role="status">{notice}</p>}
-        <h2>تنظیم‌های منتشرشده</h2><div className="arrangement-list">{arrangements.map((item, index) => <button key={item} className={arrangement === item ? "selected" : ""} onClick={() => setArrangement(item)} aria-pressed={arrangement === item}><span>{item}</span><span>{index === 1 ? "نسخهٔ انتخاب‌شده" : `${index + 2} صفحه`}</span></button>)}</div>
-        <p className="notice">صفحهٔ اول نت رایگان و واضح است. دریافت کامل PDF در این بازسازی به سرویس اصلی متصل نیست.</p>
+        <div className="difficulty-picker"><h3>{t(locale, "selectDifficulty")}</h3>{choices.length ? <div className="difficulty-chips">{choices.map((item, index) => <button type="button" key={item} className={arrangementIndex === index ? "selected" : ""} aria-pressed={arrangementIndex === index} onClick={() => setArrangementIndex(index)}>{item}</button>)}</div> : <p>{levelLabel(score.level, locale)}</p>}<small>{locale === "en" ? `Selected: ${selectedArrangement}. This labels the local preview; arrangement files are not connected.` : `انتخاب‌شده: ${selectedArrangement}. این فقط برچسب پیش‌نمایش محلی را تغییر می‌دهد؛ فایل تنظیم‌ها متصل نیست.`}</small></div>
+        <button type="button" className="pdf-access" onClick={() => setNotice(t(locale, "pdfUnavailable"))}><Download size={15} />{t(locale, "downloadPdf")}<ArrowLeft size={14} /></button>
+        <p className="disclosure-note full-score-note">{t(locale, "fullScoreDisclosure")}</p>
       </aside>
     </div>
-    <section className="intro-panel"><h2>دربارهٔ نت {score.title}</h2><p>برای مقایسهٔ تنظیم‌ها، یک بخش یکسان از ملودی را در هر نسخه ببینید و بشنوید. ابتدا سرعت را کم کنید، سپس همراهی دست چپ را با ملودی تمرین کنید.</p><Link href="/scores" className="collection-link"><ArrowRight size={15} /> بازگشت به فهرست قطعات</Link></section>
-    <section className="related-works" aria-labelledby="related-title">
-      <div className="editorial-heading"><div><span className="eyebrow">CONTINUE EXPLORING</span><h2 id="related-title">قطعه‌های هم‌خانواده</h2></div><Link href="/scores">بازگشت به کتابخانه <ArrowRight size={14} /></Link></div>
-      <div className="related-list">{scores.filter((item) => item.slug !== score.slug && item.category === score.category).slice(0, 3).map((item) => <Link className="related-item" href={`/sheet/${item.slug}`} key={item.slug}><span className="related-index">{String(scores.indexOf(item) + 1).padStart(2, "0")}</span><span className="related-name">{item.title}<small>{item.latin}</small></span><span className="related-artist">{item.artist}</span><ArrowRight size={15} /></Link>)}</div>
-    </section>
+
+    <section className="about-score section-block"><div><span className="eyebrow">NUANCE / NOTE</span><h2>{t(locale, "aboutScore")} <span dir="auto">{score.title}</span></h2></div><p>{t(locale, "previewDisclosure")}</p><Link className="underlined-link" href="/scores">{t(locale, "backToScores")} <ArrowUpRight size={15} /></Link></section>
+
+    <section className="related-section section-block" aria-labelledby="related-title"><div className="section-heading editorial-heading"><div><span className="eyebrow">NUANCE / NEXT</span><h2 id="related-title">{t(locale, "relatedScores")}</h2></div><Link className="underlined-link" href="/scores">{t(locale, "allScores")} <ArrowUpRight size={15} /></Link></div><div className="score-grid related-grid">{relatedScores.map((item, index) => <ScoreCard key={item.slug} score={item} index={index} />)}</div></section>
   </main>;
 }

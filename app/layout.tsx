@@ -4,23 +4,23 @@ import { SiteShell } from "@/components/site-shell";
 
 export const metadata: Metadata = {
   title: {
-    default: "NUANCE — هر نت، یک ظرافت",
-    template: "%s | NUANCE",
+    default: "NUANCE — Piano Scores, Chosen with Care",
+    template: "%s · NUANCE",
   },
-  description: "آرشیوی گزیده از نت‌های پیانو؛ برای کشف، شنیدن و نواختن دوباره. Every Note Has a Nuance.",
+  description: "An editorial piano-score library for curious players. Find familiar melodies, explore composers, and hear a short preview.",
   applicationName: "NUANCE",
-  keywords: ["نت پیانو", "نت فارسی", "نت موسیقی", "پیانو"],
+  keywords: ["piano scores", "sheet music", "piano", "classical music", "نت پیانو", "نت موسیقی"],
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f5f0e7",
+  themeColor: "#6A2638",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fa" dir="rtl" data-scroll-behavior="smooth">
+    <html lang="fa" dir="rtl">
       <body>
         <SiteShell>{children}</SiteShell>
       </body>

@@ -1,0 +1,23 @@
+{
+  "routes": [
+    { "path": "/", "title": "Home" },
+    { "path": "/scores", "title": "Score library" },
+    { "path": "/artists", "title": "Artists" },
+    { "path": "/song-requests", "title": "Score requests" },
+    { "path": "/subscription", "title": "Membership" },
+    { "path": "/support", "title": "Support" },
+    { "path": "/feedback", "title": "Feedback" },
+    { "path": "/start-piano", "title": "Getting started" },
+    { "path": "/iranian-piano-sheets", "title": "Iranian piano scores" },
+    { "path": "/classical-piano-sheets", "title": "Classical piano scores" },
+    { "path": "/easy-piano-sheets", "title": "Easy piano scores" },
+    { "path": "/free-piano-sheets", "title": "Free piano scores" },
+    { "path": "/film-piano-sheets", "title": "Film scores" },
+    { "path": "/instrumental-piano-sheets", "title": "Instrumental scores" },
+    { "path": "/account", "title": "Account information" },
+    { "path": "/settings", "title": "Settings" },
+    { "path": "/payments", "title": "Purchases" },
+    { "path": "/payments/my-scores", "title": "My purchased scores" },
+    { "path": "/sheet/:slug", "title": "Score detail" }
+  ]
+}

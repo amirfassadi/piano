@@ -1,16 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { AlignJustify, ArrowUpRight, BookOpen, Headphones, Heart, Home, Moon, Search, Sun, UserRound, X } from "lucide-react";
 import { t, type Locale } from "@/lib/i18n";
+import { scores } from "@/lib/catalog";
+import { parseSavedScores, serializeSavedScores, FAVORITES_STORAGE_KEY } from "@/lib/favorites";
+import { parseCatalogUrlSearch } from "@/lib/catalog-url";
+import { CATALOG_NAVIGATION_EVENT, useCatalogNavigation } from "@/components/use-catalog-navigation";
 
 type LocaleContextValue = { locale: Locale; setLocale: (locale: Locale) => void };
 const LocaleContext = createContext<LocaleContextValue>({ locale: "fa", setLocale: () => undefined });
 type FavoritesContextValue = { liked: string[]; toggleLike: (slug: string) => void };
 const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 const preferenceEvent = "nuance-preference-change";
+const favoritesEvent = "nuance:favorites-change";
+let memoryFavorites: string[] = [];
 
 function subscribeToPreferences(callback: () => void) {
   window.addEventListener(preferenceEvent, callback);
@@ -22,12 +28,25 @@ function subscribeToPreferences(callback: () => void) {
 }
 
 function getLocaleSnapshot(): Locale {
-  return window.localStorage.getItem("nuance-language") === "en" ? "en" : "fa";
+  try { return window.localStorage.getItem("nuance-language") === "en" ? "en" : "fa"; } catch { return "fa"; }
 }
 function getLocaleServerSnapshot(): Locale { return "fa"; }
-function getThemeSnapshot(): boolean { return window.localStorage.getItem("nuance-theme") === "dark"; }
+function getThemeSnapshot(): boolean { try { return window.localStorage.getItem("nuance-theme") === "dark"; } catch { return false; } }
 function getThemeServerSnapshot(): boolean { return false; }
 function notifyPreferenceChange() { window.dispatchEvent(new Event(preferenceEvent)); }
+function subscribeToFavorites(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener(favoritesEvent, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(favoritesEvent, callback);
+  };
+}
+function getFavoritesSnapshot(): string {
+  try { return window.localStorage.getItem(FAVORITES_STORAGE_KEY) ?? "[]"; }
+  catch { return JSON.stringify(memoryFavorites); }
+}
+function getFavoritesServerSnapshot(): string { return "[]"; }
 
 export function useLocale(): LocaleContextValue {
   return useContext(LocaleContext);
@@ -44,9 +63,27 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const dark = useSyncExternalStore(subscribeToPreferences, getThemeSnapshot, getThemeServerSnapshot);
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [liked, setLiked] = useState<string[]>([]);
+  const favoriteSnapshot = useSyncExternalStore(subscribeToFavorites, getFavoritesSnapshot, getFavoritesServerSnapshot);
+  const validSlugs = useMemo(() => scores.map((score) => score.slug), []);
+  const liked = useMemo(() => parseSavedScores(favoriteSnapshot, validSlugs), [favoriteSnapshot, validSlugs]);
   const pathname = usePathname();
-  const router = useRouter();
+  const navigateCatalog = useCatalogNavigation();
+
+  useEffect(() => {
+    const syncQuery = (search = window.location.search) => setQuery(parseCatalogUrlSearch(search).q);
+    const onPopState = () => syncQuery();
+    const onCatalogNavigation = (event: Event) => {
+      const detail = (event as CustomEvent<{ href: string }>).detail;
+      if (detail?.href) syncQuery(new URL(detail.href, window.location.href).search);
+    };
+    syncQuery();
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener(CATALOG_NAVIGATION_EVENT, onCatalogNavigation);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener(CATALOG_NAVIGATION_EVENT, onCatalogNavigation);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -58,20 +95,19 @@ export function SiteShell({ children }: { children: ReactNode }) {
   }, [dark]);
 
   function setLocale(next: Locale) {
-    window.localStorage.setItem("nuance-language", next);
+    try { window.localStorage.setItem("nuance-language", next); } catch { /* keep this preference for the current render only */ }
     notifyPreferenceChange();
     setMenuOpen(false);
   }
 
   function toggleTheme() {
-    window.localStorage.setItem("nuance-theme", dark ? "light" : "dark");
+    try { window.localStorage.setItem("nuance-theme", dark ? "light" : "dark"); } catch { /* keep this preference for the current render only */ }
     notifyPreferenceChange();
   }
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const term = query.trim();
-    router.push(term ? `/?q=${encodeURIComponent(term)}#catalog` : "/#catalog");
+    navigateCatalog({ q: query, category: "", difficulty: "", saved: false }, "/scores");
     setMenuOpen(false);
   }
 
@@ -87,7 +123,12 @@ export function SiteShell({ children }: { children: ReactNode }) {
     <LocaleContext.Provider value={{ locale, setLocale }}>
       <FavoritesContext.Provider value={{
         liked,
-        toggleLike: (slug) => setLiked((current) => current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug]),
+        toggleLike: (slug) => {
+          const next = liked.includes(slug) ? liked.filter((item) => item !== slug) : [...liked, slug];
+          memoryFavorites = next;
+          try { window.localStorage.setItem(FAVORITES_STORAGE_KEY, serializeSavedScores(next, validSlugs)); } catch { /* favorites remain available in memory */ }
+          window.dispatchEvent(new Event(favoritesEvent));
+        },
       }}>
       <div className={`site-shell ${locale === "en" ? "shell-en" : "shell-fa"}`}>
         <a className="skip-link" href="#main-content">{locale === "en" ? "Skip to content" : "رفتن به محتوای صفحه"}</a>
@@ -113,7 +154,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
               <button className="icon-button theme-button" type="button" onClick={toggleTheme} aria-label={dark ? t(locale, "themeLight") : t(locale, "themeDark")} title={dark ? t(locale, "themeLight") : t(locale, "themeDark")}>
                 {dark ? <Sun size={17} /> : <Moon size={17} />}
               </button>
-              <Link className="icon-button favorite-button" href="/#catalog" aria-label={`${t(locale, "favorites")} (${liked.length})`} title={`${t(locale, "favorites")} (${liked.length})`}><Heart size={16} /><span>{liked.length}</span></Link>
+              <Link className="icon-button favorite-button" href="/scores?saved=1" aria-label={`${t(locale, "favorites")} (${liked.length})`} title={`${t(locale, "favorites")} (${liked.length})`}><Heart size={16} /><span>{liked.length}</span></Link>
               <Link className="icon-button account-button" href="/account" aria-label={t(locale, "navAccount")}><UserRound size={17} /></Link>
             </div>
           </div>

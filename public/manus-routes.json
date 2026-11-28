@@ -18,6 +18,7 @@
     { "path": "/settings", "title": "Settings" },
     { "path": "/payments", "title": "Purchases" },
     { "path": "/payments/my-scores", "title": "My purchased scores" },
-    { "path": "/sheet/:slug", "title": "Score detail" }
+    { "path": "/sheet/:slug", "title": "Score detail" },
+    { "path": "/practice/nuance-sample", "title": "NUANCE interactive practice" }
   ]
 }

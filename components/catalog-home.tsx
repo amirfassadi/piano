@@ -8,6 +8,8 @@ import { categories, levels, scores } from "@/lib/catalog";
 import { categoryLabel, levelLabel, t } from "@/lib/i18n";
 import { ScoreCard } from "@/components/score-card";
 import { useFavorites, useLocale } from "@/components/site-shell";
+import { matchesDifficulty } from "@/lib/catalog-filters";
+import { useCatalogNavigation } from "@/components/use-catalog-navigation";
 
 const collectionRoutes: Record<string, string> = {
   "ترانه‌های ایرانی": "iranian-piano-sheets",
@@ -23,11 +25,12 @@ function DifficultyRank(level: string): number {
   return 4;
 }
 
-export function CatalogHome({ initialQuery = "" }: { initialQuery?: string }) {
+export function CatalogHome({ initialQuery = "", initialCategory = "", initialDifficulty = "" }: { initialQuery?: string; initialCategory?: string; initialDifficulty?: string }) {
   const { locale } = useLocale();
   const { liked, toggleLike } = useFavorites();
-  const [category, setCategory] = useState("همه");
-  const [level, setLevel] = useState("همهٔ سطح‌ها");
+  const navigate = useCatalogNavigation();
+  const [category, setCategory] = useState(initialCategory || "همه");
+  const [level, setLevel] = useState(initialDifficulty || "همهٔ سطح‌ها");
   const [access, setAccess] = useState("all");
   const [sort, setSort] = useState("popular");
   const [visible, setVisible] = useState(12);
@@ -39,7 +42,7 @@ export function CatalogHome({ initialQuery = "" }: { initialQuery?: string }) {
       const searchable = `${score.title} ${score.latin} ${score.artist}`.toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US");
       const matchesQuery = !normalized || searchable.includes(normalized);
       const matchesCategory = category === "همه" || score.category === category;
-      const matchesLevel = level === "همهٔ سطح‌ها" || score.level.includes(level);
+      const matchesLevel = matchesDifficulty(score.level, level);
       const matchesAccess = access === "all" || (access === "free" ? Boolean(score.free) : liked.includes(score.slug));
       return matchesQuery && matchesCategory && matchesLevel && matchesAccess;
     });
@@ -53,12 +56,14 @@ export function CatalogHome({ initialQuery = "" }: { initialQuery?: string }) {
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    navigate({ q: query, category, difficulty: level });
     document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function selectDifficulty(nextLevel: string) {
     setLevel(nextLevel);
     setAccess("all");
+    navigate({ q: query, category, difficulty: nextLevel });
     document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -168,11 +173,11 @@ export function CatalogHome({ initialQuery = "" }: { initialQuery?: string }) {
         </div>
         <div className="filter-set" aria-label={t(locale, "filterCategory")}>
           <span className="filter-caption">{t(locale, "filterCategory")}</span>
-          {categories.map((item) => <button type="button" key={item} className={`filter-chip ${category === item ? "selected" : ""}`} aria-pressed={category === item} onClick={() => { setCategory(item); setVisible(12); }}>{categoryLabel(item, locale)}</button>)}
+          {categories.map((item) => <button type="button" key={item} className={`filter-chip ${category === item ? "selected" : ""}`} aria-pressed={category === item} onClick={() => { setCategory(item); setVisible(12); navigate({ q: query, category: item, difficulty: level }); }}>{categoryLabel(item, locale)}</button>)}
         </div>
         <div className="filter-set level-set" aria-label={t(locale, "filterLevel")}>
           <span className="filter-caption">{t(locale, "filterLevel")}</span>
-          {levels.map((item) => <button type="button" key={item} className={`filter-chip ${level === item ? "selected" : ""}`} aria-pressed={level === item} onClick={() => { setLevel(item); setVisible(12); }}>{item === levels[0] ? t(locale, "allLevels") : levelLabel(item, locale)}</button>)}
+          {levels.map((item) => <button type="button" key={item} className={`filter-chip ${level === item ? "selected" : ""}`} aria-pressed={level === item} onClick={() => { setLevel(item); setVisible(12); navigate({ q: query, category, difficulty: item }); }}>{item === levels[0] ? t(locale, "allLevels") : levelLabel(item, locale)}</button>)}
         </div>
         <div className="results-line"><span>{filteredScores.length.toLocaleString(locale === "fa" ? "fa-IR" : "en-US")} {t(locale, "countScores")}</span><span className="results-rule" /></div>
         <div className="score-grid catalog-grid">

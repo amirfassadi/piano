@@ -1,26 +1,47 @@
 ﻿# NUANCE
 
-NUANCE is a bilingual piano-score library built with Next.js, React, TypeScript, and Tailwind CSS. Its editorial design supports Persian RTL and English LTR layouts, with score discovery, collections, artist browsing, and local preview controls.
+NUANCE is a bilingual Persian/English piano-score discovery project with URL-backed catalog filters, persistent favorites, and an original interactive practice study. It uses Next.js 16, React 19 and TypeScript. The discovery baseline's 32 catalog entries are retained; one additional, explicitly authored NUANCE exercise brings the catalog to 33. That sample is not presented as a published composition or credited to a real-world composer.
 
-## Development
+## Requirements and setup
+
+Use **Node.js 22 LTS** (minimum supported by this checkout: Node 20.9) and npm 10 or newer. With nvm, run `nvm install` and `nvm use` from this project directory; `.nvmrc` selects Node 22. Then install the exact lockfile dependencies:
 
 ```sh
-npm install
+npm ci
+```
+
+For the browser acceptance test, install Playwright's Chromium browser once:
+
+```sh
+npx playwright install chromium
+```
+
+On a fresh Linux machine that also needs the browser's system libraries, use `npx playwright install --with-deps chromium`. A system Chromium can be selected with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/path/to/chromium` (the test detects `/usr/bin/chromium` automatically when present).
+
+## Run and verify
+
+```sh
 npm run dev
 ```
 
-Quality checks:
+The acceptance script expects a production build. Run the required checks in this order:
 
 ```sh
 npm run lint
 npm run typecheck
+npm test
 npm run build
+npm run test:e2e
 ```
+
+`npm run test:e2e` starts and stops a local production server automatically on port 4173. Set `E2E_PORT` to choose a different port, or set `BASE_URL` to use an already-running server (in that case the script does not manage its lifecycle). The test uses Playwright Core and Chromium.
 
 ## Routes and features
 
-The App Router includes the home catalog, score and artist collections, support and song-request information, account and membership pages, and `/sheet/:slug` score details. The local catalog powers search, category and difficulty filters, favorites, related scores, and the synthesized preview.
+The score library is at `/scores`; score details are at `/sheet/:slug`. The original practice sample is `/sheet/nuance-sample`, with the interactive two-hand practice room at `/practice/nuance-sample`. Discovery includes URL-synchronized search, category and difficulty filters, browser Back/Forward restoration, and favorites that persist through local storage with an in-memory fallback when storage is unavailable. Unknown arrangement-specific difficulty remains unknown rather than being guessed.
+
+The practice room presents a four-measure authored study using one event collection for notation, the time-vertical/pitch-horizontal waterfall, keyboard highlights, and Web Audio synthesis. It supports play, pause, resume, seeking, tempo changes, hand toggles, and A–B looping; music notation remains left-to-right regardless of the site's Persian interface direction. Browser automation and unit tests cover the scheduling model and UI controls. They do **not** measure sound emitted by a physical output device, so hardware/loopback audio synchronization has not been verified. Actual timing from the browser's audio output, speakers/headphones, and external MIDI devices is not asserted. There is no microphone or performance-detection feature.
 
 ## Service limitations
 
-Authentication, payment, complete score/PDF delivery, support submission, and song-request submission are not connected. Score notation and playback are illustrative previews. Set `NEXT_PUBLIC_SITE_URL` to the canonical site origin before deployment; without a configured origin the sitemap remains empty.
+Authentication, payments, complete score/PDF delivery, support submission, and score-request submission are not connected. Scores other than the original practice study continue to show illustrative preview material rather than complete, verified notation or source recordings. Set `NEXT_PUBLIC_SITE_URL` to the canonical origin when preparing a deployment; without it, canonical URLs and sitemap entries are omitted. This task makes no production deployment.

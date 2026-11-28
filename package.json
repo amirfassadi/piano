@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:e2e": "node tests/discovery.e2e.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.16",
@@ -23,6 +25,8 @@
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.0.0",
+    "playwright": "^1.65.1",
+    "playwright-core": "^1.65.1",
     "typescript": "^5.7.0"
   }
 }

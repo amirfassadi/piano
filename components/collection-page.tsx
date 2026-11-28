@@ -6,7 +6,9 @@ import { ArrowUpRight, Search } from "lucide-react";
 import { categories, levels, scores } from "@/lib/catalog";
 import { categoryLabel, levelLabel, roleLabel, t } from "@/lib/i18n";
 import { ScoreCard } from "@/components/score-card";
-import { useLocale } from "@/components/site-shell";
+import { useFavorites, useLocale } from "@/components/site-shell";
+import { ALL_DIFFICULTIES, matchesDifficulty } from "@/lib/catalog-filters";
+import { useCatalogNavigation } from "@/components/use-catalog-navigation";
 
 const collectionCategories: Record<string, string> = {
   "iranian-piano-sheets": "ترانه‌های ایرانی",
@@ -112,12 +114,15 @@ function MembershipPage() {
   </>;
 }
 
-export function CollectionPage({ section, initialQuery = "", initialCategory = "" }: { section: string; initialQuery?: string; initialCategory?: string }) {
+export function CollectionPage({ section, initialQuery = "", initialCategory = "", initialDifficulty = "", initialSaved = false }: { section: string; initialQuery?: string; initialCategory?: string; initialDifficulty?: string; initialSaved?: boolean }) {
   const { locale } = useLocale();
+  const { liked, toggleLike } = useFavorites();
+  const navigate = useCatalogNavigation();
   const initialCategoryForPage = collectionCategories[section] ?? (categories.includes(initialCategory) && section === "scores" ? initialCategory : "همه");
   const [filter, setFilter] = useState(initialQuery);
   const [categoryFilter, setCategoryFilter] = useState(initialCategoryForPage);
-  const [levelFilter, setLevelFilter] = useState("همهٔ سطح‌ها");
+  const [levelFilter, setLevelFilter] = useState(initialDifficulty || ALL_DIFFICULTIES);
+  const savedOnly = initialSaved && section === "scores";
   const isArtist = section === "artists";
   const isRequest = section === "song-requests";
   const isSubscription = section === "subscription";
@@ -129,15 +134,21 @@ export function CollectionPage({ section, initialQuery = "", initialCategory = "
   const pageTitle = locale === "fa" && persianSpecialCopy ? persianSpecialCopy.title : t(locale, page.title as Parameters<typeof t>[1]);
   const pageDescription = locale === "fa" && persianSpecialCopy ? persianSpecialCopy.description : t(locale, page.description as Parameters<typeof t>[1]);
 
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    navigate({ q: filter, category: categoryFilter, difficulty: levelFilter, saved: savedOnly });
+  }
+
   const filteredArtists = useMemo(() => artists.filter((artist) => !filter.trim() || `${artist.name} ${artist.role}`.toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US").includes(filter.trim().toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US"))), [filter, locale]);
   const visibleScores = useMemo(() => scores.filter((score) => {
-    let category = categoryFilter;
-    if (section === "easy-piano-sheets") return score.level.includes("آسان") && (!filter.trim() || `${score.title} ${score.latin} ${score.artist}`.toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase())) && (levelFilter === "همهٔ سطح‌ها" || score.level.includes(levelFilter));
+    if (savedOnly && (!liked.includes(score.slug) || section !== "scores")) return false;
+    if (section === "easy-piano-sheets" && !matchesDifficulty(score.level, "آسان")) return false;
     if (section === "free-piano-sheets" && !score.free) return false;
+    let category = categoryFilter;
     if (category === "همه") category = "";
     const searchable = `${score.title} ${score.latin} ${score.artist}`.toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US");
-    return (!category || score.category === category) && (levelFilter === "همهٔ سطح‌ها" || score.level.includes(levelFilter)) && (!filter.trim() || searchable.includes(filter.trim().toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US")));
-  }), [categoryFilter, filter, levelFilter, locale, section]);
+    return (!category || score.category === category) && matchesDifficulty(score.level, levelFilter) && (!filter.trim() || searchable.includes(filter.trim().toLocaleLowerCase(locale === "fa" ? "fa-IR" : "en-US")));
+  }), [categoryFilter, filter, levelFilter, liked, locale, savedOnly, section]);
 
   return <main className="page-wrap content-page" id="main-content">
     <nav className="breadcrumbs" aria-label={locale === "en" ? "Breadcrumb" : "مسیر صفحه"}><Link href="/">{t(locale, "breadcrumbsHome")}</Link><span aria-hidden="true">/</span><Link href="/scores">{t(locale, "breadcrumbsLibrary")}</Link><span aria-hidden="true">/</span><span>{pageTitle}</span></nav>
@@ -150,7 +161,7 @@ export function CollectionPage({ section, initialQuery = "", initialCategory = "
     {isArtist && <section className="section-block" aria-labelledby="artist-list-title">
       <div className="section-heading editorial-heading">
         <div><span className="eyebrow">NUANCE / INDEX</span><h2 id="artist-list-title">{t(locale, "artistsTitle")}</h2><p>{t(locale, "artistsLead")}</p></div>
-        <label className="catalog-search"><Search size={16} aria-hidden="true" /><span className="visually-hidden">{t(locale, "searchLabel")}</span><input aria-label={t(locale, "searchLabel")} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={t(locale, "searchPlaceholder")} /></label>
+        <form className="catalog-search" role="search" onSubmit={submitSearch}><Search size={16} aria-hidden="true" /><label className="visually-hidden" htmlFor="collection-search">{t(locale, "searchLabel")}</label><input id="collection-search" type="search" dir="auto" aria-label={t(locale, "searchLabel")} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={t(locale, "searchPlaceholder")} /><button className="visually-hidden" type="submit">{t(locale, "searchButton")}</button></form>
       </div>
       <div className="artist-grid">{filteredArtists.map((artist, index) => <article className="artist-card" key={artist.name}>
         <span className="artist-index">{String(index + 1).padStart(2, "0")}</span>
@@ -181,17 +192,17 @@ export function CollectionPage({ section, initialQuery = "", initialCategory = "
     {!isArtist && !isRequest && !isSubscription && !isSupport && !isAccount && !isGuide && <section className="section-block collection-results" aria-labelledby="collection-results-title">
       <div className="section-heading editorial-heading">
         <div><span className="eyebrow">NUANCE / COLLECTION</span><h2 id="collection-results-title">{t(locale, "catalogTitle")}</h2><p>{t(locale, "catalogLead")}</p></div>
-        <label className="catalog-search"><Search size={16} aria-hidden="true" /><span className="visually-hidden">{t(locale, "searchLabel")}</span><input type="search" dir="auto" aria-label={t(locale, "searchLabel")} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={t(locale, "searchPlaceholder")} /></label>
+        <form className="catalog-search" role="search" onSubmit={submitSearch}><Search size={16} aria-hidden="true" /><label className="visually-hidden" htmlFor="collection-search">{t(locale, "searchLabel")}</label><input id="collection-search" type="search" dir="auto" aria-label={t(locale, "searchLabel")} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={t(locale, "searchPlaceholder")} /><button className="visually-hidden" type="submit">{t(locale, "searchButton")}</button></form>
       </div>
       {section === "scores" && <div className="filter-set collection-filter-set" aria-label={t(locale, "filterCategory")}>
-        {categories.map((item) => <button type="button" key={item} className={`filter-chip ${categoryFilter === item ? "selected" : ""}`} aria-pressed={categoryFilter === item} onClick={() => setCategoryFilter(item)}>{categoryLabel(item, locale)}</button>)}
+        {categories.map((item) => <button type="button" key={item} className={`filter-chip ${categoryFilter === item ? "selected" : ""}`} aria-pressed={categoryFilter === item} onClick={() => { setCategoryFilter(item); navigate({ q: filter, category: item, difficulty: levelFilter, saved: savedOnly }); }}>{categoryLabel(item, locale)}</button>)}
       </div>}
       <div className="filter-set level-set">
         <span className="filter-caption">{t(locale, "filterLevel")}</span>
-        {levels.map((item) => <button type="button" key={item} className={`filter-chip ${levelFilter === item ? "selected" : ""}`} aria-pressed={levelFilter === item} onClick={() => setLevelFilter(item)}>{item === levels[0] ? t(locale, "allLevels") : levelLabel(item, locale)}</button>)}
+        {levels.map((item) => <button type="button" key={item} className={`filter-chip ${levelFilter === item ? "selected" : ""}`} aria-pressed={levelFilter === item} onClick={() => { setLevelFilter(item); navigate({ q: filter, category: categoryFilter, difficulty: item, saved: savedOnly }); }}>{item === levels[0] ? t(locale, "allLevels") : levelLabel(item, locale)}</button>)}
       </div>
-      <div className="results-line"><span>{visibleScores.length.toLocaleString(locale === "fa" ? "fa-IR" : "en-US")} {t(locale, "countScores")}</span><span className="results-rule" /></div>
-      <div className="score-grid collection-score-grid">{visibleScores.map((score, index) => <ScoreCard key={score.slug} score={score} index={index} />)}{visibleScores.length === 0 && <p className="empty-state">{t(locale, "noResults")}</p>}</div>
+      <div className="results-line"><span>{visibleScores.length.toLocaleString(locale === "fa" ? "fa-IR" : "en-US")} {savedOnly ? t(locale, "savedScores") : t(locale, "countScores")}</span>{section === "scores" && !savedOnly && <span>{scores.length.toLocaleString(locale === "fa" ? "fa-IR" : "en-US")} {t(locale, "totalCatalogCount")}</span>}<span className="results-rule" /></div>
+      <div className="score-grid collection-score-grid">{visibleScores.map((score, index) => <ScoreCard key={score.slug} score={score} index={index} showLikes liked={liked.includes(score.slug)} onLike={() => toggleLike(score.slug)} />)}{visibleScores.length === 0 && <p className="empty-state">{savedOnly ? t(locale, "noSavedScores") : categoryFilter !== "همه" && !filter.trim() && levelFilter === ALL_DIFFICULTIES ? t(locale, "noCategoryScores") : t(locale, "noResults")}</p>}</div>
     </section>}
 
     {!isRequest && !isSupport && <section className="archive-note section-block"><div><span className="eyebrow">NUANCE / ARCHIVE</span><h2>{t(locale, "archiveNoteTitle")}</h2><p>{t(locale, "archiveNoteCopy")}</p></div><div className="archive-note-links"><Link href="/scores">{t(locale, "allScores")} <ArrowUpRight size={14} /></Link><Link href="/artists">{t(locale, "navArtists")} <ArrowUpRight size={14} /></Link><Link href="/subscription">{t(locale, "navMembership")} <ArrowUpRight size={14} /></Link></div></section>}

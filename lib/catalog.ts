@@ -46,7 +46,8 @@ export const scores: Score[] = [
   { slug: "dance-of-river", title: "رقص رودخانه", latin: "Dance of River", artist: "عرفان نادریان", role: "آهنگساز", category: "بی‌کلام", level: "انتخاب تنظیم", likes: 0, price: "شرایط هر اثر", cover: "/images/score-cover-5.png" },
   { slug: "glass-winter", title: "زمستان شیشه‌ای", latin: "Glass Winter", artist: "عرفان نادریان", role: "آهنگساز", category: "بی‌کلام", level: "انتخاب تنظیم", likes: 0, price: "شرایط هر اثر", cover: "/images/score-cover-6.png" },
   { slug: "rainy-morning", title: "صبح بارانی", latin: "Rainy Morning", artist: "عرفان نادریان", role: "آهنگساز", category: "بی‌کلام", level: "انتخاب تنظیم", likes: 0, price: "شرایط هر اثر", cover: "/images/score-cover-3.png" },
+  { slug: "nuance-sample", title: "تمرین نمونهٔ NUANCE شمارهٔ ۱", latin: "NUANCE Sample Study No. 1", artist: "تمرین تألیفی NUANCE", role: "", category: "تمرین‌های تألیفی", level: "آسان", likes: 0, price: "رایگان", free: true, cover: "/images/score-cover.png" },
 ];
 
-export const categories = ["همه", "ترانه‌های ایرانی", "کلاسیک", "موسیقی فیلم", "بی‌کلام", "محلی", "ترانه‌های جهان"];
+export const categories = ["همه", "ترانه‌های ایرانی", "کلاسیک", "موسیقی فیلم", "بی‌کلام", "محلی", "ترانه‌های جهان", "تمرین‌های تألیفی"];
 export const levels = ["همهٔ سطح‌ها", "آسان", "متوسط", "سخت"];

@@ -3,34 +3,22 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Download, Heart, Pause, Play, Repeat2, Waves } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Download, Heart, Pause, Play, Repeat2 } from "lucide-react";
 import { scores, type Score } from "@/lib/catalog";
 import { accessLabel, categoryLabel, levelLabel, roleLabel, t } from "@/lib/i18n";
 import { ScoreCard } from "@/components/score-card";
 import { useFavorites, useLocale } from "@/components/site-shell";
+import { difficultyLevels } from "@/lib/catalog-filters";
 
 const notes = [523.25, 587.33, 659.25, 698.46, 783.99, 698.46, 659.25, 587.33, 523.25];
-
-function difficultyOptions(level: string, locale: "en" | "fa"): string[] {
-  const easy = t(locale, "levelEasy");
-  const medium = t(locale, "levelIntermediate");
-  const hard = t(locale, "levelAdvanced");
-  if (level.includes("آسان") && level.includes("سخت")) return [easy, medium, hard];
-  if (level.includes("آسان") && level.includes("متوسط")) return [easy, medium];
-  if (level.includes("متوسط") && level.includes("سخت")) return [medium, hard];
-  if (level.includes("آسان")) return [easy];
-  if (level.includes("متوسط")) return [medium];
-  if (level.includes("سخت")) return [hard];
-  return [];
-}
 
 export function ScoreDetail({ score }: { score: Score }) {
   const { locale } = useLocale();
   const { liked, toggleLike } = useFavorites();
   const isLiked = liked.includes(score.slug);
-  const choices = useMemo(() => difficultyOptions(score.level, locale), [locale, score.level]);
-  const [arrangementIndex, setArrangementIndex] = useState(0);
-  const [mode, setMode] = useState("sheet");
+  const isOriginalStudy = score.slug === "nuance-sample";
+  const displayTitle = isOriginalStudy && locale === "en" ? "NUANCE Sample Study No. 1" : score.title;
+  const choices = useMemo(() => difficultyLevels(score.level).map((level) => levelLabel(level, locale)), [locale, score.level]);
   const [tempo, setTempo] = useState(92);
   const [playing, setPlaying] = useState(false);
   const [notice, setNotice] = useState("");
@@ -94,12 +82,11 @@ export function ScoreDetail({ score }: { score: Score }) {
   const related = scores.filter((item) => item.slug !== score.slug && item.category === score.category).slice(0, 3);
   const relatedScores = related.length >= 3 ? related : [...related, ...scores.filter((item) => item.slug !== score.slug && item.category !== score.category)].slice(0, 3);
   const credit = [roleLabel(score.role, locale), score.artist].filter(Boolean).join(" · ");
-  const selectedArrangement = choices[arrangementIndex] ?? t(locale, "levelSelect");
 
   return <main className="page-wrap content-page score-detail-page" id="main-content">
-    <nav className="breadcrumbs" aria-label={locale === "en" ? "Breadcrumb" : "مسیر صفحه"}><Link href="/">{t(locale, "breadcrumbsHome")}</Link><span aria-hidden="true">/</span><Link href="/scores">{t(locale, "breadcrumbsLibrary")}</Link><span aria-hidden="true">/</span><span dir="auto">{score.title}</span></nav>
+    <nav className="breadcrumbs" aria-label={locale === "en" ? "Breadcrumb" : "مسیر صفحه"}><Link href="/">{t(locale, "breadcrumbsHome")}</Link><span aria-hidden="true">/</span><Link href="/scores">{t(locale, "breadcrumbsLibrary")}</Link><span aria-hidden="true">/</span><span dir="auto">{displayTitle}</span></nav>
     <header className="score-detail-hero">
-      <div className="detail-title-block"><span className="eyebrow">NUANCE / SCORE {score.slug.toUpperCase()}</span><h1 className="display-title" dir="auto">{score.title}</h1><p dir="auto">{score.latin} {credit && <span>· {credit}</span>}</p></div>
+      <div className="detail-title-block"><span className="eyebrow">NUANCE / SCORE {score.slug.toUpperCase()}</span><h1 className="display-title" dir="auto">{displayTitle}</h1><p dir="auto">{score.latin} {credit && <span>· {credit}</span>}</p></div>
       <div className="detail-art"><Image src={score.cover} alt={`${locale === "en" ? "Artwork for" : "تصویر هنری برای"} ${score.title}`} fill sizes="(max-width: 700px) 100vw, 42vw" /></div>
     </header>
     <div className="detail-meta-row" aria-label={locale === "en" ? "Score details" : "جزئیات نت"}>
@@ -112,7 +99,7 @@ export function ScoreDetail({ score }: { score: Score }) {
     <div className="detail-layout">
       <section className="sheet-preview" aria-labelledby="preview-title">
         <div className="preview-label"><span className="eyebrow">NUANCE / PREVIEW</span><h2 id="preview-title">{t(locale, "previewKicker")}</h2></div>
-        <div className={`fake-sheet ${mode === "roll" ? "reading-mode" : mode === "waterfall" ? "waterfall-mode" : ""}`} aria-hidden="true">
+        <div className="fake-sheet" aria-hidden="true">
           <div className="paper-heading"><span>NUANCE · {score.slug.toUpperCase()}</span><strong dir="auto">{score.title}</strong><small dir="auto">{score.artist}</small></div>
           <div className="music-staff"><span className="clef">𝄞</span><div className="staff-lines"><span>♪　♩　♫　♬　♪　♩</span></div></div>
           <div className="music-staff"><span className="clef">𝄢</span><div className="staff-lines"><span>♩　♬　♪　♩　♫　♪</span></div></div>
@@ -123,24 +110,22 @@ export function ScoreDetail({ score }: { score: Score }) {
       </section>
       <aside className="detail-side">
         <span className="eyebrow">NUANCE / PRACTICE</span>
-        <h2 dir="auto">{score.title}</h2>
+        <h2 dir="auto">{displayTitle}</h2>
         <p className="detail-credit" dir="auto">{credit || score.artist}</p>
         <button type="button" className={`detail-favorite ${isLiked ? "liked" : ""}`} onClick={() => toggleLike(score.slug)} aria-pressed={isLiked}>
           <Heart size={15} fill={isLiked ? "currentColor" : "none"} aria-hidden="true" />
           {t(locale, isLiked ? "removeSavedScore" : "saveScore")}
         </button>
-        <div className="detail-controls">
+        {isOriginalStudy ? <Link href="/practice/nuance-sample" className="primary-button original-practice-link">{locale === "en" ? "Open interactive practice" : "ورود به تمرین تعاملی"}<ArrowUpRight size={15} /></Link> : <div className="detail-controls">
           <button type="button" className="primary-button" onClick={togglePreview}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? t(locale, "stopPreview") : t(locale, "playPreview")}</button>
           <button type="button" className="outline-button" onClick={restartPreview}><Repeat2 size={15} />{t(locale, "restartPreview")}</button>
-        </div>
-        <label className="tempo-control" htmlFor="tempo"><span>{t(locale, "tempo")}</span><output>{tempo} BPM</output></label>
+        </div>}
+        {!isOriginalStudy && <><label className="tempo-control" htmlFor="tempo"><span>{t(locale, "tempo")}</span><output>{tempo} BPM</output></label>
         <input className="tempo-slider" id="tempo" type="range" min="40" max="180" value={tempo} onChange={(event) => setTempo(Number(event.target.value))} />
-        <div className="detail-controls mode-controls" aria-label={locale === "en" ? "Preview layout" : "حالت نمایش پیش‌نمایش"}>
-          {["sheet", "roll", "waterfall"].map((item) => <button type="button" key={item} className={mode === item ? "selected" : ""} aria-pressed={mode === item} onClick={() => setMode(item)}>{item === "waterfall" && <Waves size={14} />}{t(locale, item === "sheet" ? "modeSheet" : item === "roll" ? "modeRoll" : "modeWaterfall")}</button>)}
-        </div>
+        <p className="disclosure-note">{t(locale, "previewModesUnavailable")}</p></>}
         {notice && <p className="notice" role="status">{notice}</p>}
-        <div className="difficulty-picker"><h3>{t(locale, "selectDifficulty")}</h3>{choices.length ? <div className="difficulty-chips">{choices.map((item, index) => <button type="button" key={item} className={arrangementIndex === index ? "selected" : ""} aria-pressed={arrangementIndex === index} onClick={() => setArrangementIndex(index)}>{item}</button>)}</div> : <p>{levelLabel(score.level, locale)}</p>}<small>{locale === "en" ? `Selected: ${selectedArrangement}. This labels the local preview; arrangement files are not connected.` : `انتخاب‌شده: ${selectedArrangement}. این فقط برچسب پیش‌نمایش محلی را تغییر می‌دهد؛ فایل تنظیم‌ها متصل نیست.`}</small></div>
-        <button type="button" className="pdf-access" onClick={() => setNotice(t(locale, "pdfUnavailable"))}><Download size={15} />{t(locale, "downloadPdf")}<ArrowLeft size={14} /></button>
+        <div className="difficulty-picker"><h3>{t(locale, "difficulty")}</h3>{choices.length ? <div className="difficulty-chips">{choices.map((item) => <span className="selected" key={item}>{item}</span>)}</div> : <p>{levelLabel(score.level, locale)}</p>}<small>{isOriginalStudy ? (locale === "en" ? "One original four-measure practice setting." : "یک تنظیم تمرینی تألیفی چهارمیزانی.") : t(locale, "arrangementUnavailable")}</small></div>
+        <p className="pdf-access" role="note"><Download size={15} />{t(locale, "pdfUnavailable")}<ArrowLeft size={14} /></p>
         <p className="disclosure-note full-score-note">{t(locale, "fullScoreDisclosure")}</p>
       </aside>
     </div>

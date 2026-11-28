@@ -20,15 +20,20 @@ const staticPaths = [
   "settings",
   "payments",
   "payments/my-scores",
+  "practice/nuance-sample",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  const vercelHost = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined;
-  const origin = configuredUrl || vercelHost;
-  if (!origin) return [];
-
-  const baseUrl = origin.replace(/\/$/, "");
+  if (!configuredUrl) return [];
+  let baseUrl: string;
+  try {
+    const url = new URL(configuredUrl);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return [];
+    baseUrl = url.origin;
+  } catch {
+    return [];
+  }
   const paths = [...staticPaths, ...scores.map((score) => `sheet/${score.slug}`)];
   return paths.map((path) => ({
     url: `${baseUrl}/${path}`,

@@ -122,7 +122,9 @@ test("waterfall pitch columns and keyboard use the same note centers; vertical d
   const event = practiceStudy.events.find((item) => item.pitch === 60)!;
   const geometry = waterfallNoteGeometry(event, 0)!;
   assert.equal(geometry.left, `${pitchXPercent(60)}%`);
-  assert.equal(geometry.top, "calc(78% - 0px)");
+  assert.equal(geometry.top, `calc(78% - ${event.duration * 58}px)`);
+  assert.equal(waterfallNoteGeometry(event, event.start + event.duration / 2)!.top, `calc(78% - ${event.duration * 29}px)`);
+  assert.equal(waterfallNoteGeometry(event, event.start + event.duration)!.top, "calc(78% - 0px)");
   assert.equal(geometry.height, `${event.duration * 58}px`);
   assert.notEqual(waterfallNoteGeometry({ ...event, start: 2 }, 0)!.top, geometry.top);
   const chord: NoteEvent[] = [

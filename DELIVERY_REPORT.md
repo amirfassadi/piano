@@ -1,30 +1,37 @@
-# NUANCE Discovery + Interactive Practice — Delivery Report
+# NUANCE Discovery + Interactive Practice — Implementation Report
 
-## Recovery and baseline
+## Release and baseline
 
-The accepted baseline is `NUANCE-discovery-qa.zip`; the older `NUANCE-source.zip` was not treated as final. Its 32 catalog records were preserved. A complete practice checkout and the previously reported remote refs were unavailable. From the prior NUANCE Prompt Manuscript conversation and recoverable project files, the practice data model/authored events, transport helpers, initial practice-room component and base tests were recovered. These recovered code pieces were retained and corrected.
+This is follow-up release **1.0.1** on the dedicated branch `feat/interactive-piano-practice`. It builds on the discovery ZIP accepted by the earlier task; the stale `NUANCE-source.zip` was not treated as the final source. The 32 discovery records and their search/filter/URL/history/favorite/storage behavior remain. One clearly authored NUANCE exercise brings the catalog to 33; it is not presented as a published work or attributed to a real-world composer.
 
-The practice route and its styling were absent from the recovered archives, so `/app/practice/nuance-sample/page.tsx`, responsive styling, catalog/detail linkage, shared visual coordinates, and new regression/E2E coverage were reconstructed from the recovered model and existing project. The only catalog addition is an explicitly identified original NUANCE sample exercise; no published work or performer credit was fabricated. Total catalog count: 33 (32 existing + 1 authored study).
+From the recoverable prior project files and the previous “NUANCE Prompt Manuscript” session, the practice event model, authored event set, transport helpers, initial practice-room component, and base tests were recovered. A complete practice checkout and the formerly reported branch refs were not available in the original repository recovery. The practice route, responsive styling, score-detail/catalog linkage, coordinate mapping, and additional regression/browser tests had to be reconstructed. The recovered practice code was retained and improved rather than replaced wholesale.
 
-## Implemented scope
+## Practice implementation and corrections
 
-The practice room now uses one authored event collection for staff notes/cursor, time-vertical and pitch-horizontal waterfall, keyboard highlights, and synthesized playback. The staff cursor and beat positions share a linear beat transform; key/pitch columns use common MIDI coordinates; note-block length follows duration. Four measures are shown (with the terminal barline, not an extra fifth measure), and the music layout remains LTR inside both Persian and English site shells.
+The practice route is `/practice/nuance-sample`, linked from `/sheet/nuance-sample`. One authored event list drives staff notes, score cursor, pitch/time waterfall, virtual-keyboard highlights, and Web Audio synthesis. Four measures are shown; music notation stays LTR in Persian and English layouts. The practice route is only provided for the piece with a valid authored arrangement.
 
-Playback scheduling supports pause/resume and seeking into a sustained note, tempo changes while playing, per-hand enable/mute based on the explicit `hand` field, chord events, restart at the endpoint, A–B loop boundaries, completion, and pausing on background visibility changes. Discovery retains range-aware difficulty matching (including medium for easy-to-hard items), URL-backed state and Back/Forward, unrelated query parameters, favorites across reload, and in-memory fallback if browser storage is blocked.
+The follow-up corrects waterfall placement so each note block moves across the execution line during its actual `[start, end]` duration. It also fixes mid-note scheduling and deduplication: seek, pause/resume, and fractional A–B entry schedule the remaining portion of sustained notes/chords, and a stable per-event/transport key prevents repeatedly scheduling a new oscillator on each scheduler tick. Tempo changes preserve the current beat, stop the old source on an explicit short fade boundary, and schedule its replacement at the new BPM; source stop calls match sliced event ends. Per-hand mute, partial-start errors, and route unmount clean up source nodes; unmount also closes the AudioContext.
 
-## Verification
+Discovery remains covered by URL-backed search, inclusive difficulty matching (including medium for easy-to-hard), category filters, Back/Forward restoration, saved favorites across reload, unrelated query-parameter preservation, and in-memory fallback if storage is blocked.
 
-The final release archive is `NUANCE-Interactive-Practice.zip`. It is extracted to a new, empty directory and the following commands are run against that extracted copy; the final supplementary report records exact outcomes and archive SHA-256:
+## Verification and archive reproducibility
 
-- `npm ci`
-- `npm run lint`
-- `npm run typecheck`
-- `npm test`
-- `npm run build`
-- `npm run test:e2e`
+Release archive: `delivery/NUANCE-Interactive-Practice-v1.0.1.zip`. It passed `zip -T` and contains the complete 46-file project source, including the practice route, components, libraries, tests, configuration, `package.json`, and synchronized `package-lock.json`. The exact ZIP was extracted into a previously nonexistent directory, `/home/ubuntu/work/piano-release-1.0.1-clean`. All checks below were run from that extracted copy:
 
-The unit suite tests event slicing, timing transforms, loop math, hand-field gating, beat/pitch coordinates, duration geometry, catalog difficulty, URL preservation, and storage parsing. E2E checks the score-detail-to-practice route, LTR music order, four-measure staff, shared pitched events, waterfall duration, playback start/pause, seek, tempo, hand toggles, A–B controls, endpoint restart, background pause, search/category/Back/Forward, favorite persistence/fallback, and responsive layout.
+- `npm ci` — passed; 372 packages installed, zero vulnerabilities reported; `package.json` and lockfile both identify 1.0.1.
+- `npm run lint` — passed.
+- `npm run typecheck` — passed.
+- `npm test` — passed, **18/18** tests.
+- `npm run build` — passed on Next.js 16.4.6; `/practice/nuance-sample` was generated as a static route.
+- `npm run test:e2e` — passed against a local production server in Chromium.
+- `git diff --check` — passed on the development changes.
 
-**Audio limitation:** these checks validate scheduling logic and browser controls only. They do not measure physical or loopback audio output, speaker/headphone latency, external MIDI, or perceptual synchronization. Hardware/output synchronization is not confirmed. There is no microphone or performance-detection capability.
+The unit suite covers arrangement validation, transport/slicing helpers, loops, tempo conversions, score/pitch geometry, catalog discovery, URL handling, and storage. Production-browser E2E instruments actual Chromium `AudioContext` and oscillator `start()`/`stop()` calls. It checks beat-0.5 seek/resume through a chord and sustained left-hand note, actual scheduled stop durations at 100%→50%→150%, no duplicate/parallel voices, stop/start order during retiming, independent hand muting, a fractional A–B loop truncating and restoring a sustained note, cleanup after a synthetic partial-start failure, and resource/context cleanup on client-side route exit. DOM-level assertions compare score cursor and event x-coordinates, waterfall crossing at onset and midpoint, and waterfall pitch centers with the corresponding keyboard keys. Discovery UI scenarios exercise search, filters, history, favorites, storage fallback, and responsive layouts.
 
-Authentication, payment, complete score/PDF delivery and service-backed form submission remain outside this local package. Nothing is deployed. Work is isolated to `feat/interactive-piano-practice`; `main` and production remain unchanged.
+`npm ci` emitted a non-blocking deprecation notice for installed ESLint 9.39.5. Node also emitted non-blocking `MODULE_TYPELESS_PACKAGE_JSON` notices while executing the TypeScript tests. No vulnerability was reported. These E2E assertions verify **browser-scheduled audio-clock calls** only; they do not measure sound heard through speakers/headphones, physical or loopback output, MIDI devices, or perceived audio/visual synchronization. Browser/device-specific audible latency is unverified. No microphone or performance-detection feature exists.
+
+## Remaining product limitations
+
+Authentication, payment, complete score/PDF delivery, support submission, and score-request submission are not connected to a service. Scores other than the original practice study may still show illustrative previews rather than complete verified notation or source recordings. This task does not deploy to production.
+
+See the versioned supplementary delivery report for the archive SHA-256, source commit identity, and remote-push verification.

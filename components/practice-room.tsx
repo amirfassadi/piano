@@ -48,7 +48,7 @@ function Staff({ position, locale }: { position: number; locale: "en" | "fa" }) 
           const letter = pitchName(pitch)[0];
           const accidental = pitchName(pitch).includes("♯");
           const stemDown = row === 0 && y < top + 20;
-          return <g key={event.id} className={active ? "score-note active" : "score-note"}>
+          return <g key={event.id} data-event-id={event.id} data-start-beat={event.start} className={active ? "score-note active" : "score-note"}>
             {accidental && <text x={x - 14} y={y + 4} fill={color} className="accidental">♯</text>}
             <ellipse cx={x} cy={y} rx="6.4" ry="4.4" transform={`rotate(-18 ${x} ${y})`} fill={event.duration >= 2 ? "#fffefa" : color} stroke={color} strokeWidth="1.5" />
             {event.duration < 4 && <line x1={stemDown ? x - 5 : x + 5} y1={y} x2={stemDown ? x - 5 : x + 5} y2={stemDown ? y + 30 : y - 30} stroke={color} strokeWidth="1.5" />}
@@ -60,7 +60,7 @@ function Staff({ position, locale }: { position: number; locale: "en" | "fa" }) 
         {practiceStudy.events.filter((event) => event.hand === hand && event.pitch === null).map((event) => { const x = scoreXAtBeat(event.start); return <text key={event.id} x={x} y={top + 25} textAnchor="middle" className="rest-symbol">𝄽<title>{locale === "en" ? "Quarter rest" : "سکوت سیاه"}</title></text>; })}
       </g>;
     })}
-    <line x1={scoreXAtBeat(displayBeat)} x2={scoreXAtBeat(displayBeat)} y1="75" y2="274" className="score-cursor" />
+    <line x1={scoreXAtBeat(displayBeat)} x2={scoreXAtBeat(displayBeat)} y1="75" y2="274" data-beat={displayBeat} className="score-cursor" />
   </svg></div>;
 }
 
@@ -68,7 +68,7 @@ function Waterfall({ position, loop, locale }: { position: number; loop: LoopRan
   const notes = practiceStudy.events.filter((event) => event.pitch !== null);
   return <div className="waterfall" role="img" aria-label={locale === "en" ? "Time-vertical pitch-horizontal note waterfall synchronized to the keyboard" : "آبشار نت با محور زمان عمودی و زیر و بمی افقی، هماهنگ با کلاویه"}>
     {Array.from({ length: 5 }, (_, i) => <div key={i} className="waterfall-measure-line" style={{ top: `calc(78% - ${(i * 4 - position) * 58}px)` }}><span>{i < 4 ? i + 1 : ""}</span></div>)}
-    {notes.map((event) => { const geometry = waterfallNoteGeometry(event, position)!; return <span key={event.id} className={`waterfall-note ${event.hand} ${position >= event.start && position < event.start + event.duration ? "current" : ""}`} style={{ left: geometry.left, width: geometry.width, top: geometry.top, height: geometry.height }} title={`${pitchName(event.pitch!)} · ${event.hand} · finger ${event.fingering}`} />; })}
+    {notes.map((event) => { const geometry = waterfallNoteGeometry(event, position)!; return <span key={event.id} data-event-id={event.id} data-start-beat={event.start} data-duration-beats={event.duration} className={`waterfall-note ${event.hand} ${position >= event.start && position < event.start + event.duration ? "current" : ""}`} style={{ left: geometry.left, width: geometry.width, top: geometry.top, height: geometry.height }} title={`${pitchName(event.pitch!)} · ${event.hand} · finger ${event.fingering}`} />; })}
     {loop && <div className="loop-shade" aria-label={`A ${loop.a} – B ${loop.b}`} />}
     <div className="waterfall-cursor" />
   </div>;
@@ -99,17 +99,25 @@ export function PracticeRoom() {
   const voicesRef = useRef(new Map<string, { source: OscillatorNode; gain: GainNode; start: number; end: number; hand: "left" | "right" }>());
   const scheduledRef = useRef(new Set<string>());
   const startBeatRef = useRef(0);
+  const loopCycleRef = useRef(0);
   const label = useMemo(() => formatBeat(position, practiceStudy.beatsPerMeasure), [position]);
 
-  const killVoices = useCallback((futureOnly = false) => {
+  const killVoices = useCallback(() => {
     const ctx = ctxRef.current;
     const now = ctx?.currentTime ?? 0;
     for (const [key, voice] of voicesRef.current) {
-      if (!futureOnly || voice.start > now + 0.005) {
-        try { voice.gain.gain.cancelScheduledValues(now); voice.gain.gain.setTargetAtTime(0.0001, now, 0.015); voice.source.stop(now + 0.055); } catch { /* already ended */ }
-        voicesRef.current.delete(key);
-        scheduledRef.current.delete(key);
-      }
+      try { voice.source.stop(voice.start > now + 0.01 ? now : now + 0.02); } catch { /* already ended */ }
+      try {
+        voice.gain.gain.cancelScheduledValues(now);
+        if (voice.start > now + 0.01) {
+          voice.gain.gain.setValueAtTime(0.0001, now);
+        } else {
+          voice.gain.gain.setValueAtTime(Math.max(0.0001, voice.gain.gain.value), now);
+          voice.gain.gain.linearRampToValueAtTime(0.0001, now + 0.02);
+        }
+      } catch { /* already ended */ }
+      voicesRef.current.delete(key);
+      scheduledRef.current.delete(key);
     }
   }, []);
 
@@ -124,7 +132,7 @@ export function PracticeRoom() {
     startupRef.current = false;
     runningRef.current = false;
     clearClock();
-    killVoices(false);
+    killVoices();
     if (reset) { positionRef.current = 0; anchorRef.current = { beat: 0, time: ctxRef.current?.currentTime ?? 0 }; setPosition(0); }
     setPlaying(false);
   }, [clearClock, killVoices]);
@@ -139,12 +147,13 @@ export function PracticeRoom() {
     const ctx = ctxRef.current ?? new AC(); ctxRef.current = ctx;
     await ctx.resume();
     if (generation !== generationRef.current) return;
-    killVoices(false);
+    killVoices();
     const requested = from >= totalBeats && !loopRef.current ? 0 : from;
     const start = startPosition(requested, totalBeats, loopRef.current);
     positionRef.current = start;
-    anchorRef.current = { beat: start, time: ctx.currentTime + 0.045 };
+    anchorRef.current = { beat: start, time: ctx.currentTime + 0.025 };
     startBeatRef.current = start;
+    loopCycleRef.current = 0;
     scheduledRef.current.clear();
     runningRef.current = true;
     clearClock();
@@ -159,6 +168,7 @@ export function PracticeRoom() {
         anchorRef.current = { beat: activeLoop.a, time: audioTimeAtBeat(anchorRef.current.beat, anchorRef.current.time, activeLoop.b, bpmRef.current) };
         beat = activeLoop.a + (beat - activeLoop.b);
         startBeatRef.current = activeLoop.a;
+        loopCycleRef.current += 1;
         scheduledRef.current.clear();
       } else if (!activeLoop && beat >= totalBeats) {
         positionRef.current = totalBeats; setPosition(totalBeats); halt(false); return;
@@ -173,8 +183,8 @@ export function PracticeRoom() {
         if (eventEnd <= startBeatRef.current + 0.0001 || eventStart >= stopAt || eventEnd <= beat + 0.0001 || eventStart > horizonBeat) continue;
         const slice = eventSliceAtBeat(event, beat, stopAt);
         if (!slice) continue;
-        const when = slice.resumedMidEvent ? now + 0.015 : audioTimeAtBeat(anchorRef.current.beat, anchorRef.current.time, slice.startBeat, bpmRef.current);
-        const key = `${event.id}:${when.toFixed(4)}`;
+        const when = slice.resumedMidEvent ? now + 0.025 : audioTimeAtBeat(anchorRef.current.beat, anchorRef.current.time, slice.startBeat, bpmRef.current);
+        const key = `${generationRef.current}:${loopCycleRef.current}:${event.id}`;
         if (scheduledRef.current.has(key)) continue;
         const voice = audio.createOscillator(); const gain = audio.createGain();
         const duration = slice.durationBeats * 60 / bpmRef.current;
@@ -184,7 +194,8 @@ export function PracticeRoom() {
         gain.gain.linearRampToValueAtTime(event.hand === "left" ? 0.038 : 0.048, when + 0.012);
         gain.gain.setValueAtTime(event.hand === "left" ? 0.038 : 0.048, Math.max(when + 0.013, end - 0.035));
         gain.gain.exponentialRampToValueAtTime(0.0001, end);
-        voice.connect(gain).connect(audio.destination); voice.start(when); voice.stop(end + 0.01);
+        voice.connect(gain).connect(audio.destination); voice.start(when); voice.stop(end);
+        voice.onended = () => { if (voicesRef.current.get(key)?.source === voice) voicesRef.current.delete(key); };
         voicesRef.current.set(key, { source: voice, gain, start: when, end, hand: event.hand }); scheduledRef.current.add(key);
       }
       for (const [key, voice] of voicesRef.current) if (voice.end < now - 0.1) { voicesRef.current.delete(key); scheduledRef.current.delete(key); }
@@ -202,6 +213,8 @@ export function PracticeRoom() {
       if (generation === generationRef.current) {
         runningRef.current = false;
         clearClock();
+        killVoices();
+        scheduledRef.current.clear();
         setPlaying(false);
         setNotice(en ? "Audio could not start. Check browser audio permissions, then try again." : "صدا شروع نشد. اجازهٔ پخش مرورگر را بررسی کنید و دوباره بزنید.");
       }
@@ -225,7 +238,7 @@ export function PracticeRoom() {
 
   const seek = (beat: number) => {
     const next = clampBeat(beat, totalBeats); const resume = runningRef.current;
-    if (resume) pause(); else { if (startupRef.current) halt(false); killVoices(false); }
+    if (resume) pause(); else { if (startupRef.current) halt(false); killVoices(); }
     positionRef.current = next; setPosition(next);
     if (resume) void begin(next);
   };
@@ -236,7 +249,7 @@ export function PracticeRoom() {
     if (wasRunning && ctx) {
       positionRef.current = beatAtAudioTime(anchorRef.current.beat, anchorRef.current.time, ctx.currentTime, bpmRef.current);
       runningRef.current = false; clearClock();
-      killVoices(false);
+      killVoices();
     }
     const beat = positionRef.current;
     setTempoPercent(percent); bpmRef.current = effectiveBpm(practiceStudy.bpm, percent);
@@ -261,7 +274,8 @@ export function PracticeRoom() {
     if (!next[hand]) for (const [key, voice] of voicesRef.current) {
       if (voice.hand === hand) {
         const now = ctxRef.current?.currentTime ?? 0;
-        try { voice.gain.gain.cancelScheduledValues(now); voice.gain.gain.setTargetAtTime(0.0001, now, 0.012); voice.source.stop(now + 0.05); } catch { /* already ended */ }
+        try { voice.source.stop(voice.start > now + 0.01 ? now : now + 0.02); } catch { /* already ended */ }
+        try { voice.gain.gain.cancelScheduledValues(now); voice.gain.gain.setValueAtTime(Math.max(0.0001, voice.gain.gain.value), now); voice.gain.gain.linearRampToValueAtTime(0.0001, now + 0.015); } catch { /* already ended */ }
         voicesRef.current.delete(key); scheduledRef.current.delete(key);
       }
     }

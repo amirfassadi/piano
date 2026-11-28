@@ -42,7 +42,7 @@ export function waterfallNoteGeometry(event: Pick<NoteEvent, "pitch" | "start" |
   return {
     left: `${center}%`,
     width: `${isBlack ? 2.2 : 3.7}%`,
-    top: `calc(${WATERFALL_PLAYHEAD_Y}% - ${(event.start - position) * WATERFALL_PIXELS_PER_BEAT}px)`,
+    top: `calc(${WATERFALL_PLAYHEAD_Y}% - ${(event.start + event.duration - position) * WATERFALL_PIXELS_PER_BEAT}px)`,
     height: `${event.duration * WATERFALL_PIXELS_PER_BEAT}px`,
   };
 }
